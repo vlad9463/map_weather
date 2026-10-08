@@ -296,6 +296,8 @@
     if(typeof L==='undefined'){$('weatherStatus').innerHTML='<div class="banner">Не удалось загрузить библиотеку карты. Проверь подключение к интернету и обнови страницу.</div>';return}
     map=L.map('map',{zoomControl:false,preferCanvas:true,worldCopyJump:true,attributionControl:true,zoomAnimation:true}).setView([prefs.lat??DEFAULT.lat,prefs.lng??DEFAULT.lng],prefs.zoom??11);
     map.attributionControl.setPosition('topright');
+    // Hide Leaflet's default blue/yellow brand emblem; keep mandatory Esri data credits.
+    map.attributionControl.setPrefix(false);
     baseMap=new ResilientTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
       attribution:MAP_ATTR,maxZoom:19,keepBuffer:4,updateWhenIdle:true,backupTiles:[
         (z,x,y)=>`https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`

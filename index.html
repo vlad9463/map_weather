@@ -11,7 +11,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon.svg">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzXoo3Qj5jEjzz2oIVTFc0RJM=" crossorigin="">
+  <link rel="stylesheet" href="./leaflet.css">
   <title>РыбТочки — погода по делу</title>
   <style>
     :root{--ink:#233337;--muted:#7b898a;--card:#fbfcf9;--line:#e6ebe7;--accent:#df7457;--accent-dark:#b9583d;--mint:#e3f2eb;--teal:#218d79;--blue:#5680c7;--shadow:0 12px 50px rgba(26,49,48,.17)}
@@ -23,10 +23,35 @@
     @media(min-width:760px){.topbar{left:22px;right:22px;top:22px}.layer-switch{top:22px;right:90px}.sheet{left:22px;right:auto;bottom:20px;width:430px;height:470px;max-height:calc(100dvh - 115px);border-radius:24px;padding-bottom:0}.sheet.expanded{height:min(78dvh,750px)}.locate{right:22px;bottom:25px}body:has(.sheet.expanded) .locate{bottom:25px}.sheet-head{padding:0 22px 12px}.sheet-scroll{padding:0 22px 25px}.brand{max-width:none}.leaflet-control-attribution{max-width:calc(100vw - 32px)}}
     @media(max-width:370px){.brand-sub{display:none}.brand{padding:8px}.sheet-head{padding-left:14px;padding-right:14px}.sheet-scroll{padding-left:14px;padding-right:14px}.model-head,.model-row{padding-left:8px;padding-right:8px}.model-row{font-size:11px}.minor-btn{padding:9px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
+
+    /* Wind canvas remains above raster basemaps but below forecast controls. */
+    #windOverlay{position:fixed;inset:0;z-index:2;pointer-events:none;display:none}
+    #windOverlay.on{display:block}
+    .wind-control{position:fixed;z-index:480;top:calc(env(safe-area-inset-top,0px) + 137px);right:14px;
+      border:1px solid #e4ede7;border-radius:13px;background:rgba(255,255,255,.98);padding:10px 14px;
+      color:#40655e;box-shadow:0 4px 20px #142e2919;font-size:12px;font-weight:720}
+    .wind-control.active{background:#daede8;color:#185d4e;border-color:#afd4c7}
+    .wind-control:disabled{opacity:.7}
+    .wind-legend{position:fixed;z-index:420;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);right:14px;
+      padding:9px 12px;background:rgba(255,255,255,.92);border:1px solid #e7eeeb;border-radius:12px;
+      box-shadow:0 4px 20px #17393314;font-size:11px;color:#40645d;pointer-events:none;max-width:240px}
+    .wind-legend[hidden],.tile-alert[hidden]{display:none}
+    .wind-scale{margin:5px 0 2px;height:8px;border-radius:9px;background:linear-gradient(to right,#3f93ce,#35bdb9,#75ca82,#f5d668,#ee915c,#ca4c68)}
+    .wind-labels{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;font-size:10px}
+    .tile-alert{position:fixed;z-index:465;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 140px);
+      background:#fff6ed;color:#8b4b32;border:1px solid #f5d3bb;border-radius:12px;padding:9px 12px;
+      font-size:12px;line-height:1.4;max-width:min(400px,70vw);box-shadow:0 4px 18px #16302926}
+    @media(min-width:760px){.wind-control{top:77px;right:90px}
+      .wind-legend{bottom:25px;right:85px}
+      .tile-alert{top:75px;left:50%;transform:translateX(-50%)}}
   </style>
 </head>
 <body>
   <div id="map" aria-label="Карта рыболовных точек"></div>
+  <canvas id="windOverlay" aria-hidden="true"></canvas>
+  <button type="button" id="windControl" class="wind-control" aria-pressed="true" title="Цвет скорости и стрелки направления ветра">↗ Ветер: вкл</button>
+  <div id="windLegend" class="wind-legend" hidden><strong id="windLegendTime">Ветер ECMWF</strong><div class="wind-scale"></div><div class="wind-labels"><span>0</span><span>3</span><span>6</span><span>10</span><span>15+ м/с</span></div><small>Приблизительно · интерполяция модели</small></div>
+  <div id="tileAlert" class="tile-alert" role="status" hidden></div>
   <header class="topbar">
     <div class="brand">
       <div class="brand-icon" aria-hidden="true"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M3 10c2.3-2.5 4.6-2.5 7 0s4.6 2.5 7 0 3.7-2.2 4-2.3M3 16c2.3-2.5 4.6-2.5 7 0s4.6 2.5 7 0 3.7-2.2 4-2.3" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></div>
@@ -87,27 +112,184 @@
   let spots=(Array.isArray(parseJson(STORAGE,[]))?parseJson(STORAGE,[]):[]).filter(s=>s&&typeof s.name==='string'&&finite(s.lat)&&finite(s.lng)&&Math.abs(s.lat)<=90&&Math.abs(s.lng)<=180&&typeof s.id==='string');
   let selected={...DEFAULT,id:null,name:'Самара · примерная точка'};
   let map,baseMap,satMap,selectedMarker,spotMarkers,forecast={},hours=[],hourIndex=0,chartMetric='wind_speed_10m',loadSeq=0;
+  let windEnabled=prefs.windEnabled!==false,windGrid=[],windController=null,windSeq=0,windTimer=0,windSignature='',windFetchedAt=0;
+  let mapTileFailures=0,satTileFailures=0;
   const cache=new Map();
-  const MAP_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
-  const SAT_ATTR='Tiles &copy; Esri, Vantor, Earthstar Geographics, GIS User Community';
+  const MAP_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> · <a href="https://www.openstreetmap.fr/usage/" target="_blank">OSM France</a>';
+  const SAT_ATTR='Imagery &copy; Esri, Vantor, Earthstar Geographics, GIS User Community';
+  // A failed image can otherwise leave large empty squares. Try a second legal tile host.
+  const ResilientTileLayer=L.TileLayer.extend({
+    createTile:function(coords,done){
+      const tile=document.createElement('img');tile.alt='';tile.setAttribute('role','presentation');
+      const z=this._getZoomForUrl(),x=coords.x,y=coords.y;
+      const urls=[this.getTileUrl(coords),...(this.options.backupTiles||[]).map(fn=>fn(z,x,y))];
+      let attempt=0,settled=false,timeout;
+      const finish=err=>{if(settled)return;settled=true;clearTimeout(timeout);done(err,tile)};
+      const next=()=>{
+        if(settled)return;clearTimeout(timeout);
+        if(attempt>=urls.length){finish(new Error('Картографический тайл не загрузился'));return}
+        const n=attempt++,url=urls[n];
+        tile.onload=()=>{if(n!==attempt-1||settled)return;if(n>0)this.fire('tilefallback',{coords});finish(null)};
+        tile.onerror=()=>{if(n===attempt-1)next()};
+        tile.src=url;
+        timeout=setTimeout(()=>{if(n===attempt-1)next()},8500);
+      };
+      next();return tile;
+    }
+  });
+  function updateTileAlert(){
+    const el=$('tileAlert');
+    if(mapTileFailures>2){el.textContent='Часть карты недоступна даже через резервный сервер. Проверь VPN/блокировщик или повтори позже.';el.hidden=false}
+    else if(satTileFailures>2&&prefs.layer==='sat'){el.textContent='Часть спутниковых снимков недоступна: на их месте видна схема.';el.hidden=false}
+    else el.hidden=true;
+  }
   function markerIcon(isSaved,isActive){return L.divIcon({html:`<div class="map-pin ${isSaved?'saved':''} ${isActive?'active':''}"><i></i></div>`,iconSize:[30,30],iconAnchor:[14,27],className:'weather-marker'});}
   function initMap(){
     if(typeof L==='undefined'){$('weatherStatus').innerHTML='<div class="banner">Не удалось загрузить библиотеку карты. Проверь подключение к интернету и обнови страницу.</div>';return}
-    map=L.map('map',{zoomControl:false,preferCanvas:true,worldCopyJump:true,attributionControl:true}).setView([prefs.lat??DEFAULT.lat,prefs.lng??DEFAULT.lng],prefs.zoom??11);
+    map=L.map('map',{zoomControl:false,preferCanvas:true,worldCopyJump:true,attributionControl:true,zoomAnimation:true}).setView([prefs.lat??DEFAULT.lat,prefs.lng??DEFAULT.lng],prefs.zoom??11);
     map.attributionControl.setPosition('topright');
-    baseMap=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:MAP_ATTR,maxZoom:19});
-    satMap=L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:SAT_ATTR,maxZoom:19});
-    (prefs.layer==='sat'?satMap:baseMap).addTo(map);
+    baseMap=new ResilientTileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:MAP_ATTR,maxZoom:19,keepBuffer:4,updateWhenIdle:true,backupTiles:[
+        (z,x,y)=>`https://a.tile.openstreetmap.fr/osmfr/${z}/${x}/${y}.png`,
+        (z,x,y)=>`https://tile.openstreetmap.de/${z}/${x}/${y}.png`
+      ]
+    }).setZIndex(1).addTo(map);
+    satMap=new ResilientTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+      attribution:SAT_ATTR,maxZoom:19,keepBuffer:4,updateWhenIdle:true,backupTiles:[
+        (z,x,y)=>`https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`
+      ]
+    }).setZIndex(2);
+    baseMap.on('tileerror',()=>{mapTileFailures++;updateTileAlert()});
+    satMap.on('tileerror',()=>{satTileFailures++;updateTileAlert()});
+    if(prefs.layer==='sat')satMap.addTo(map);
     updateLayerButtons(prefs.layer==='sat'?'sat':'map');
     spotMarkers=L.layerGroup().addTo(map);
     selectedMarker=L.marker([selected.lat,selected.lng],{icon:markerIcon(false,true),zIndexOffset:1100}).addTo(map);
     selectedMarker.on('click',()=>openForecast(true));
     map.on('click',e=>selectPoint({lat:e.latlng.lat,lng:e.latlng.lng,id:null,name:'Точка на карте'},true));
-    map.on('moveend',()=>{const c=map.getCenter();Object.assign(prefs,{lat:c.lat,lng:c.lng,zoom:map.getZoom()});saveJson(PREF,prefs)});
-    renderMarkers();selectPoint(selected,false);
+    map.on('moveend',()=>{const c=map.getCenter();Object.assign(prefs,{lat:c.lat,lng:c.lng,zoom:map.getZoom()});saveJson(PREF,prefs);scheduleWindGrid()});
+    map.on('zoomstart movestart',()=>{$('windOverlay').style.opacity='0';mapTileFailures=0;satTileFailures=0;updateTileAlert()});
+    map.on('zoomend moveend',()=>{$('windOverlay').style.opacity='1';renderWind()});
+    window.addEventListener('resize',()=>{map.invalidateSize();renderWind();scheduleWindGrid()});
+    renderMarkers();selectPoint(selected,false);updateWindButton();scheduleWindGrid();
   }
   function updateLayerButtons(s){document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('active',b.dataset.layer===s))}
-  document.querySelectorAll('[data-layer]').forEach(b=>b.addEventListener('click',()=>{if(!map)return;let v=b.dataset.layer;map.removeLayer(v==='sat'?baseMap:satMap);(v==='sat'?satMap:baseMap).addTo(map);prefs.layer=v;saveJson(PREF,prefs);updateLayerButtons(v)}));
+  document.querySelectorAll('[data-layer]').forEach(b=>b.addEventListener('click',()=>{
+    if(!map)return;let v=b.dataset.layer;
+    if(v==='sat'){if(!map.hasLayer(satMap))satMap.addTo(map)}
+    else if(map.hasLayer(satMap))map.removeLayer(satMap);
+    prefs.layer=v;saveJson(PREF,prefs);updateLayerButtons(v);updateTileAlert();
+  }));
+
+  // Векторное поле ECMWF для выбранного часа. Это модельные данные с грубой сеткой,
+  // не измерения непосредственно над каждым затоном.
+  const WIND_COLORS=[[0,63,147,206],[3,53,189,185],[6,117,202,130],[10,245,214,104],[15,238,145,92],[22,202,76,104]];
+  function windColor(speed){
+    let i=1;while(i<WIND_COLORS.length-1&&speed>WIND_COLORS[i][0])i++;
+    const a=WIND_COLORS[i-1],b=WIND_COLORS[i],t=Math.min(1,Math.max(0,(speed-a[0])/(b[0]-a[0])));
+    return `rgba(${Math.round(a[1]+(b[1]-a[1])*t)},${Math.round(a[2]+(b[2]-a[2])*t)},${Math.round(a[3]+(b[3]-a[3])*t)},.34)`;
+  }
+  function updateWindButton(){
+    const b=$('windControl');b.classList.toggle('active',windEnabled);
+    b.setAttribute('aria-pressed',String(windEnabled));
+    b.textContent=windEnabled?'↗ Ветер: вкл':'↗ Ветер: выкл';
+    $('windOverlay').classList.toggle('on',windEnabled);
+    $('windLegend').hidden=!windEnabled||!windGrid.length;
+  }
+  $('windControl').onclick=()=>{
+    windEnabled=!windEnabled;prefs.windEnabled=windEnabled;saveJson(PREF,prefs);updateWindButton();
+    if(windEnabled){renderWind();scheduleWindGrid(true)}
+    else{clearTimeout(windTimer);windController?.abort();windSeq++;}
+  };
+  function windHour(){
+    if(hours.length&&hours[hourIndex])return hours[hourIndex];
+    return new Date(Date.now()+4*3600000).toISOString().slice(0,13)+':00';
+  }
+  function scheduleWindGrid(force=false){
+    if(!windEnabled||!map)return;
+    clearTimeout(windTimer);
+    windTimer=setTimeout(()=>loadWindGrid(force),force?0:650);
+  }
+  async function loadWindGrid(force=false){
+    if(!windEnabled||!map)return;
+    const center=map.getCenter(),sig=[Math.round(center.lat*8)/8,Math.round(center.lng*8)/8,map.getZoom(),Math.round(map.getSize().x/300),Math.round(map.getSize().y/300)].join(':');
+    if(!force&&windGrid.length&&windSignature===sig&&Date.now()-windFetchedAt<12*60*1000){renderWind();return}
+    windController?.abort();
+    const controller=new AbortController();windController=controller;const seq=++windSeq;
+    const size=map.getSize(),cols=5,rows=4,points=[];
+    for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+      const pt=map.containerPointToLatLng([size.x*i/(cols-1),size.y*j/(rows-1)]);
+      points.push({lat:Math.max(-85,Math.min(85,pt.lat)),lon:((pt.lng+540)%360)-180});
+    }
+    const url=new URL('https://api.open-meteo.com/v1/forecast');
+    for(const [key,val] of Object.entries({
+      latitude:points.map(p=>p.lat.toFixed(5)).join(','),longitude:points.map(p=>p.lon.toFixed(5)).join(','),
+      hourly:'wind_speed_10m,wind_direction_10m',wind_speed_unit:'ms',timezone:'Europe/Samara',
+      forecast_days:'4',models:'ecmwf_ifs025'
+    }))url.searchParams.set(key,val);
+    try{
+      const response=await fetch(url,{signal:controller.signal});
+      if(!response.ok)throw Error('HTTP '+response.status);
+      const data=await response.json(),list=Array.isArray(data)?data:[data];
+      const grid=points.map((p,i)=>({...p,hourly:list[i]?.hourly}));
+      if(grid.every(p=>!Array.isArray(p.hourly?.time)))throw Error('Нет данных ветра');
+      if(seq!==windSeq||!windEnabled)return;
+      windGrid=grid;windSignature=sig;windFetchedAt=Date.now();
+      $('windControl').title='Прогноз ветра ECMWF · цвет скорость, стрелки направление';
+      renderWind();
+    }catch(err){
+      if(seq!==windSeq||err?.name==='AbortError')return;
+      $('windControl').title='Не удалось получить поле ветра: '+String(err?.message||err)+'. Нажми для повтора.';
+      // Не закрашиваем карту выдуманными значениями при ошибке загрузки.
+      windGrid=[];renderWind();$('windLegend').hidden=true;
+    }
+  }
+  function windVectors(hour){
+    return windGrid.map(p=>{
+      const h=p.hourly;if(!Array.isArray(h?.time))return null;
+      let index=h.time.indexOf(hour);
+      if(index<0){const ts=dateMs(hour);let best=Infinity;for(let i=0;i<h.time.length;i++){const d=Math.abs(dateMs(h.time[i])-ts);if(d<best){best=d;index=i}}}
+      const speed=h.wind_speed_10m?.[index],dir=h.wind_direction_10m?.[index];
+      if(!finite(speed)||!finite(dir))return null;
+      const rad=dir*Math.PI/180,xy=map.latLngToContainerPoint([p.lat,p.lon]);
+      return {x:xy.x,y:xy.y,u:-speed*Math.sin(rad),v:speed*Math.cos(rad)};
+    }).filter(Boolean);
+  }
+  function renderWind(){
+    const canvas=$('windOverlay'),legend=$('windLegend');
+    if(!map||!windEnabled||!windGrid.length){legend.hidden=true;return}
+    const bounds=map.getSize(),width=Math.round(bounds.x),height=Math.round(bounds.y),dpr=Math.min(2,window.devicePixelRatio||1);
+    if(width<2||height<2)return;
+    canvas.style.width=width+'px';canvas.style.height=height+'px';
+    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+    const ctx=canvas.getContext('2d');if(!ctx)return;
+    ctx.scale(dpr,dpr);
+    const nodes=windVectors(windHour());if(!nodes.length){legend.hidden=true;return}
+    function at(x,y){
+      let total=0,u=0,v=0;
+      for(const p of nodes){const dist=(p.x-x)**2+(p.y-y)**2;const w=1/(dist+1800);total+=w;u+=w*p.u;v+=w*p.v;}
+      return {u:u/total,v:v/total,speed:Math.hypot(u/total,v/total)};
+    }
+    const step=18;
+    for(let y=0;y<height;y+=step)for(let x=0;x<width;x+=step){
+      ctx.fillStyle=windColor(at(x+step/2,y+step/2).speed);
+      ctx.fillRect(x,y,step+1,step+1);
+    }
+    for(let y=43;y<height;y+=76)for(let x=38;x<width;x+=76){
+      const v=at(x,y);if(v.speed<.2)continue;
+      const len=15,dx=v.u/v.speed,dy=v.v/v.speed,tx=x+dx*len/2,ty=y+dy*len/2;
+      const p1x=x-dx*len/2,p1y=y-dy*len/2;
+      const wing=5;
+      const paint=()=>{ctx.beginPath();ctx.moveTo(p1x,p1y);ctx.lineTo(tx,ty);
+        ctx.moveTo(tx-dx*wing-dy*wing*.65,ty-dy*wing+dx*wing*.65);ctx.lineTo(tx,ty);
+        ctx.lineTo(tx-dx*wing+dy*wing*.65,ty-dy*wing-dx*wing*.65);ctx.stroke()};
+      ctx.strokeStyle='rgba(255,255,255,.83)';ctx.lineWidth=3.6;ctx.lineCap='round';ctx.lineJoin='round';paint();
+      ctx.strokeStyle='rgba(20,54,63,.82)';ctx.lineWidth=1.65;paint();
+    }
+    $('windLegendTime').textContent='Ветер ECMWF · '+clock(windHour());
+    legend.hidden=false;
+  }
+
   function renderMarkers(){if(!spotMarkers)return;spotMarkers.clearLayers();for(const s of spots){if(s.id===selected.id)continue;L.marker([s.lat,s.lng],{icon:markerIcon(true,false)}).addTo(spotMarkers).on('click',()=>{selectPoint(s,true);map.panTo([s.lat,s.lng])})} $('spotCount').textContent=String(spots.length);$('drawerCount').textContent=String(spots.length);}
   function selectPoint(s,expand){selected={lat:s.lat,lng:s.lng,id:s.id??null,name:s.name??'Точка на карте'};if(selectedMarker)selectedMarker.setLatLng([s.lat,s.lng]).setIcon(markerIcon(!!selected.id,true));renderMarkers();$('pointName').textContent=selected.name;$('pointCoords').textContent=`${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`; $('saveButton').textContent=selected.id?'✎ Название':'+ Сохранить';$('saveButton').classList.toggle('is-saved',!!selected.id);if(expand)$('sheet').classList.add('expanded');loadWeather();}
   function openForecast(expand){if(expand)$('sheet').classList.add('expanded')}
@@ -155,7 +337,7 @@
     for(const s of series){let path='',on=false;s.ys.forEach((v,i)=>{if(!finite(v)){on=false;return}path+=(on?' L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);on=true});if(path)chunks.push(`<path class="chart-path" stroke="${s.m.color}" d="${path}"/>`)}
     $('chartWrap').innerHTML=`<svg role="img" aria-label="Прогноз по моделям на следующие 24 часа" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${chunks.join('')}</svg><div style="display:flex;justify-content:space-between;gap:8px;color:#92a199;font-size:10px;padding:3px 5px"><span>Следующие 24 часа</span><span>${key==='wind_speed_10m'?'м/с':key==='temperature_2m'?'°C':'гПа'}</span></div>`;
   }
-  function renderAll(resetHours=true){if(resetHours)renderHours();else{document.querySelectorAll('.hour-chip').forEach(b=>b.classList.remove('active'));renderHours()}renderMetrics();renderModels();renderChart()}
+  function renderAll(resetHours=true){if(resetHours)renderHours();else{document.querySelectorAll('.hour-chip').forEach(b=>b.classList.remove('active'));renderHours()}renderMetrics();renderModels();renderChart();renderWind()}
   $('sheetHandle').onclick=()=>$('sheet').classList.toggle('expanded');$('sheetHandle').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('sheetHandle').click()}};
   $('refreshButton').onclick=()=>loadWeather(true);
   document.querySelectorAll('.chart-tab').forEach(b=>b.onclick=()=>{chartMetric=b.dataset.metric;document.querySelectorAll('.chart-tab').forEach(a=>a.classList.toggle('active',a===b));renderChart()});

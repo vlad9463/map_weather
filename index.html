@@ -89,6 +89,19 @@
       .hour-nav .tz-label{display:none}
       .day-jump{padding:7px 8px}
     }
+
+    .week-title{display:flex;align-items:center;justify-content:space-between;margin:3px 0 9px}
+    .day-strip{display:flex;gap:7px;overflow-x:auto;scrollbar-width:thin;padding-bottom:6px;margin-bottom:8px;scrollbar-color:#b5ccc0 transparent}
+    .day-chip{border:1px solid #e1e9e3;border-radius:12px;background:#fff;display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:10px;min-width:111px;flex:0 0 auto;color:#314f45}
+    .day-chip strong{font-size:11px}.day-chip span{font-size:14px;font-weight:750;white-space:nowrap}.day-chip small{font-size:10px;color:#698079;white-space:nowrap}
+    .day-chip.active{background:#2d6658;color:#fff;border-color:#2d6658}.day-chip.active small{color:#dfede6}
+    .week-overview{border-bottom:1px solid #e3eae4;margin-bottom:11px;padding-bottom:7px}
+    .week-overview summary{font-size:11px;color:#386f59;font-weight:700;cursor:pointer;padding:7px 2px}
+    .week-table{margin:6px 0 10px;border:1px solid #e5ece7;border-radius:10px;overflow:hidden}
+    .week-table-head,.week-data-row{display:grid;grid-template-columns:1.18fr 1.06fr .87fr .8fr .73fr;gap:3px;align-items:center;padding:8px 7px;font-size:10px}
+    .week-table-head{background:#eef5ef;font-size:9px;color:#71887b}
+    .week-data-row{border:0;border-top:1px solid #e9efe9;background:#fff;width:100%;text-align:left;color:#314b40}
+    .week-data-row.active{background:#e0f0e8;color:#1c6650}.week-data-row span{white-space:nowrap}
   </style>
 </head>
 <body>
@@ -112,7 +125,10 @@
     <div class="sheet-scroll" id="sheetScroll">
       <div id="weatherStatus" class="loading"><span class="spinner"></span> Получаю прогнозы трёх моделей…</div>
       <div id="weatherContent" hidden>
-        <div class="hour-title"><div class="section-title">Время прогноза</div><div class="hour-nav"><span class="tz-label">Самара · UTC+4</span><button type="button" class="day-jump" id="prevDay" aria-label="Предыдущие сутки" title="На 24 часа назад">← 24ч</button><button type="button" class="day-jump" id="nextDay" aria-label="Следующие сутки" title="На 24 часа вперёд">24ч →</button></div></div>
+        <div class="week-title"><span class="section-title">7 дней · обзор</span><span id="weekModelLabel" class="tiny-note"></span></div>
+        <div id="dayStrip" class="day-strip" aria-label="Выбор дня"></div>
+        <details class="week-overview" id="weekOverview"><summary>Вся неделя таблицей</summary><div id="weekTable" class="week-table"></div></details>
+        <div class="hour-title"><div class="section-title">Часы выбранного дня</div><div class="hour-nav"><span class="tz-label">Самара · UTC+4</span><button type="button" class="day-jump" id="prevDay" aria-label="Предыдущие сутки" title="На 24 часа назад">← 24ч</button><button type="button" class="day-jump" id="nextDay" aria-label="Следующие сутки" title="На 24 часа вперёд">24ч →</button></div></div>
         <div id="hourStrip" class="hour-strip" aria-label="Выбор времени прогноза"></div>
         <div class="metrics" id="metrics"></div>
         <div class="sun-row" id="sunRow"></div>
@@ -276,7 +292,7 @@
     for(const [key,val] of Object.entries({
       latitude:points.map(p=>p.lat.toFixed(5)).join(','),longitude:points.map(p=>p.lon.toFixed(5)).join(','),
       hourly:'wind_speed_10m,wind_direction_10m',wind_speed_unit:'ms',timezone:'Europe/Samara',
-      forecast_days:'4',models:activeWindModel().api
+      forecast_days:'7',models:activeWindModel().api
     }))url.searchParams.set(key,val);
     const timer=setTimeout(()=>controller.abort(),10000);
     try{
@@ -349,7 +365,7 @@
   async function fetchWeatherModel(model,lat,lon,timeoutMs=FORECAST_TIMEOUT){
     const url=new URL('https://api.open-meteo.com/v1/forecast');
     const params={latitude:lat.toFixed(5),longitude:lon.toFixed(5),hourly:HOURLY.join(','),
-      daily:'sunrise,sunset',timezone:'Europe/Samara',forecast_days:'4',wind_speed_unit:'ms',models:model};
+      daily:'sunrise,sunset',timezone:'Europe/Samara',forecast_days:'7',wind_speed_unit:'ms',models:model};
     for(const [key,val] of Object.entries(params))url.searchParams.set(key,val);
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -428,46 +444,74 @@
     // Old spatial wind field belongs to a different model — never mislabel it.
     windGrid=[];windSignature='';windController?.abort();windLoading=false;windLoadError=false;windSeq++;
     updateWindButton();$('windLegend').hidden=true;
-    renderMetrics();renderModels();renderChart();renderWind();
+    renderDays();renderMetrics();renderModels();renderChart();renderWind();
     scheduleWindGrid(true);
   }
-  function renderHours(){
-    const strip=$('hourStrip');strip.innerHTML='';
-    const initial=Math.max(0,hours.findIndex(h=>dateMs(h)>=Date.now()-30*60*1000));
-    // Show all available days, not just 48 hours.
-    for(let i=initial;i<hours.length;i+=2){
-      const hour=hours[i],btn=document.createElement('button');
-      btn.type='button';btn.className='hour-chip'+(hourIndex===i?' active':'');
-      btn.dataset.hourIndex=String(i);
-      btn.innerHTML='<strong>'+clock(hour)+'</strong><small>'+dayLabel(hour)+'</small>';
-      btn.onclick=()=>{hourIndex=i;renderAll(false);btn.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'})};
-      strip.appendChild(btn);
+
+  function forecastDays(){return [...new Set(hours.map(h=>h.slice(0,10)))].slice(0,7)}
+  function summaryForDay(day){
+    const entries=hours.filter(h=>h.startsWith(day)).map(h=>firstValuesForSummary(h)).filter(Boolean);
+    const nums=key=>entries.map(v=>v[key]).filter(finite);
+    const temps=nums('temperature_2m'),winds=nums('wind_speed_10m'),gusts=nums('wind_gusts_10m'),rain=nums('precipitation');
+    return {min:temps.length?Math.min(...temps):null,max:temps.length?Math.max(...temps):null,
+      wind:winds.length?Math.max(...winds):null,gust:gusts.length?Math.max(...gusts):null,
+      rain:rain.length?rain.reduce((a,v)=>a+v,0):null};
+  }
+  function firstValuesForSummary(hour){return valuesFor(activeModel,hour)||firstValues(hour)}
+  function dayCaption(day){
+    return new Date(day+'T12:00:00+04:00').toLocaleDateString('ru-RU',{timeZone:'Europe/Samara',weekday:'short',day:'numeric',month:'short'});
+  }
+  function renderDays(){
+    const days=forecastDays(),current=hours[hourIndex]?.slice(0,10);
+    $('weekModelLabel').textContent=forecast[activeModel]?.hourly?.time?activeModel.toUpperCase():'Резервный прогноз';
+    const strip=$('dayStrip');strip.innerHTML='';
+    let rows='';
+    for(const day of days){
+      const s=summaryForDay(day),isSelected=day===current;
+      const b=document.createElement('button');b.type='button';b.className='day-chip'+(isSelected?' active':'');
+      b.dataset.day=day;b.setAttribute('aria-pressed',String(isSelected));
+      b.innerHTML='<strong>'+dayCaption(day)+'</strong><span>'+round(s.max)+'° / '+round(s.min)+'°</span><small>Ветер до '+round(s.wind,1)+' м/с</small>';
+      b.onclick=()=>chooseDay(day);strip.appendChild(b);
+      rows+='<button type="button" data-day="'+day+'" class="week-data-row'+(isSelected?' active':'')+'"><strong>'+dayCaption(day)+'</strong>'+
+        '<span>'+round(s.max)+'° / '+round(s.min)+'°</span><span>'+round(s.wind,1)+' м/с</span>'+
+        '<span>'+round(s.gust,1)+' м/с</span><span>'+round(s.rain,1)+' мм</span></button>';
     }
-    const selectedBtn=strip.querySelector('[data-hour-index="'+hourIndex+'"]');
-    if(selectedBtn)selectedBtn.scrollIntoView({block:'nearest',inline:'nearest'});
+    $('weekTable').innerHTML='<div class="week-table-head"><span>День</span><span>t° макс/мин</span><span>Ветер</span><span>Порывы</span><span>Дождь</span></div>'+rows;
+    $('weekTable').querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>chooseDay(b.dataset.day));
+  }
+  function chooseDay(day){
+    const indexes=hours.map((h,i)=>h.startsWith(day)?i:-1).filter(i=>i>=0);
+    if(!indexes.length)return;
+    const now=new Date(Date.now()+4*3600000).toISOString().slice(0,10);
+    const preferred=day===now?indexes.find(i=>dateMs(hours[i])>=Date.now()-30*60*1000):indexes.find(i=>hours[i].endsWith('08:00'));
+    hourIndex=preferred??indexes[0];renderAll(true);
+  }
+  function renderHours(){
+    const strip=$('hourStrip'),day=hours[hourIndex]?.slice(0,10);strip.innerHTML='';
+    for(let i=0;i<hours.length;i++){const hour=hours[i];if(!hour.startsWith(day))continue;
+      const b=document.createElement('button');b.type='button';b.className='hour-chip'+(i===hourIndex?' active':'');
+      b.dataset.hourIndex=String(i);b.innerHTML='<strong>'+clock(hour)+'</strong><small>'+dayLabel(hour)+'</small>';
+      b.onclick=()=>{hourIndex=i;renderAll(false)};
+      strip.appendChild(b);
+    }
+    const chosen=strip.querySelector('[data-hour-index="'+hourIndex+'"]');
+    if(chosen)chosen.scrollIntoView({block:'nearest',inline:'center'});
     updateDayButtons();
   }
   function updateDayButtons(){
-    const first=Math.max(0,hours.findIndex(h=>dateMs(h)>=Date.now()-30*60*1000));
-    $('prevDay').disabled=hourIndex<=first;
-    $('nextDay').disabled=!hours.length||hourIndex+24>=hours.length;
+    const days=forecastDays(),pos=days.indexOf(hours[hourIndex]?.slice(0,10));
+    $('prevDay').disabled=pos<=0;$('nextDay').disabled=pos<0||pos>=days.length-1;
   }
   function jumpDay(delta){
-    const buttons=[...$('hourStrip').querySelectorAll('[data-hour-index]')];
-    if(!buttons.length)return;
-    const target=Math.max(0,Math.min(hours.length-1,hourIndex+delta));
-    const nearest=buttons.reduce((a,b)=>Math.abs(Number(a.dataset.hourIndex)-target)<=Math.abs(Number(b.dataset.hourIndex)-target)?a:b);
-    const index=Number(nearest.dataset.hourIndex);
-    if(index===hourIndex)return;
-    hourIndex=index;renderAll(false);
-    nearest.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});
+    const days=forecastDays(),pos=days.indexOf(hours[hourIndex]?.slice(0,10));
+    const next=days[pos+delta];if(next)chooseDay(next);
   }
-  $('prevDay').onclick=()=>jumpDay(-24);
-  $('nextDay').onclick=()=>jumpDay(24);
+  $('prevDay').textContent='← день';$('nextDay').textContent='день →';
+  $('prevDay').onclick=()=>jumpDay(-1);$('nextDay').onclick=()=>jumpDay(1);
   $('hourStrip').addEventListener('wheel',e=>{
-    const strip=$('hourStrip');
-    if(strip.scrollWidth<=strip.clientWidth||Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;
-    strip.scrollLeft+=e.deltaY;e.preventDefault();
+    const el=$('hourStrip');if(el.scrollWidth<=el.clientWidth)return;
+    if(Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;
+    el.scrollLeft+=e.deltaY;e.preventDefault();
   },{passive:false});
   function renderMetrics(){let h=hours[hourIndex],v=firstValues(h);if(!v)return;
     let metrics=[['Ветер',round(v.wind_speed_10m,1), 'м/с',`Порывы: ${round(v.wind_gusts_10m,1)} м/с · ${windDir(v.wind_direction_10m)}`],['Температура',round(v.temperature_2m,1),'°C',activeModel.toUpperCase()+' · воздух 2 м'],['Давление',round(mmHg(v.pressure_msl)),'мм рт. ст.','Приведено к уровню моря']];
@@ -484,17 +528,17 @@
     }).join('');
     node.querySelectorAll('[data-model]').forEach(btn=>btn.onclick=()=>chooseModel(btn.dataset.model));
   }
-  function renderChart(){let key=chartMetric;let start=hourIndex;let sample=hours.slice(start,start+25);if(sample.length<2){$('chartWrap').textContent='Нет данных для графика';return}
+  function renderChart(){let key=chartMetric;let sample=hours.filter(h=>h.slice(0,10)===hours[hourIndex]?.slice(0,10));if(sample.length<2){$('chartWrap').textContent='Нет данных для графика';return}
     let series=MODELS.map(m=>({m,ys:sample.map(h=>valuesFor(m.id,h)?.[key]??null)}));let nums=series.flatMap(s=>s.ys).filter(finite);if(!nums.length){$('chartWrap').innerHTML='<p class="info-text">Недостаточно данных для графика</p>';return}
     if(key==='pressure_msl'){series.forEach(s=>s.ys=s.ys.map(v=>finite(v)?mmHg(v):null));nums=series.flatMap(s=>s.ys).filter(finite)}
     let min=Math.min(...nums),max=Math.max(...nums),pad=(max-min||2)*.18;min-=pad;max+=pad;const W=360,H=126,L=37,R=7,T=8,B=19;const x=i=>L+(W-L-R)*i/(sample.length-1);const y=v=>T+(H-T-B)*(max-v)/(max-min);let chunks=[];
     for(let i=0;i<4;i++){let v=min+(max-min)*i/3,py=y(v);chunks.push(`<line class="chart-grid" x1="${L}" y1="${py}" x2="${W-R}" y2="${py}"/><text class="chart-label" x="${L-6}" y="${py+3}" text-anchor="end">${key==='pressure_msl'?v.toFixed(0):v.toFixed(1)}</text>`)}
     for(let i=0;i<sample.length;i+=6){chunks.push(`<text class="chart-label" x="${x(i)}" y="${H-3}" text-anchor="middle">${sample[i].slice(11,16)}</text>`)}
     for(const s of series){let path='',on=false;s.ys.forEach((v,i)=>{if(!finite(v)){on=false;return}path+=(on?' L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);on=true});if(path)chunks.push(`<path class="chart-path" stroke="${s.m.color}" stroke-width="${s.m.id===activeModel?3.6:1.6}" opacity="${s.m.id===activeModel?1:.57}" d="${path}"/>`)}
-    $('chartWrap').innerHTML=`<svg role="img" aria-label="Прогноз по моделям на следующие 24 часа" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${chunks.join('')}</svg><div style="display:flex;justify-content:space-between;gap:8px;color:#92a199;font-size:10px;padding:3px 5px"><span>Следующие 24 часа</span><span>${key==='wind_speed_10m'?'м/с':key==='temperature_2m'?'°C':'мм рт. ст.'}</span></div>`;
+    $('chartWrap').innerHTML=`<svg role="img" aria-label="Прогноз по моделям на следующие 24 часа" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${chunks.join('')}</svg><div style="display:flex;justify-content:space-between;gap:8px;color:#92a199;font-size:10px;padding:3px 5px"><span>Часы выбранного дня</span><span>${key==='wind_speed_10m'?'м/с':key==='temperature_2m'?'°C':'мм рт. ст.'}</span></div>`;
   }
   function renderAll(resetHours=true){
-    if(resetHours)renderHours();
+    if(resetHours){renderDays();renderHours();}
     else{
       document.querySelectorAll('#hourStrip .hour-chip').forEach(b=>b.classList.toggle('active',Number(b.dataset.hourIndex)===hourIndex));
       updateDayButtons();

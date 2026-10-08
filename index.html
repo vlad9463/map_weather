@@ -120,7 +120,9 @@
     #waterSaveStatus{font-size:11px;color:#376958;margin-top:6px}
     .water-live-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:8px 0}
     .water-live-cell{background:#fff;border:1px solid #dce9e2;border-radius:11px;padding:10px;min-width:0}
-    .water-live-cell span{display:block;font-size:10px;color:#658374}
+    .water-live-cell span,.water-live-cell a{display:block;font-size:10px;color:#658374}
+    .water-live-cell a{text-decoration:none}
+    .water-live-cell a:hover{text-decoration:underline}
     .water-live-cell strong{font-size:20px;display:block;font-weight:760;margin:4px 0;color:#255c50;white-space:nowrap}
     .water-live-cell small{display:block;font-size:10px;line-height:1.35;color:#668276}
     .water-live-cell .stale-water{color:#b47a4b}
@@ -178,8 +180,8 @@
           <summary><strong>Волга · уровень и температура воды</strong><span id="waterPreview">Автоданные</span></summary>
           <div class="water-body">
             <div class="water-live-grid">
-              <div class="water-live-cell"><span>Уровень · Самара</span><strong id="autoWaterLevel">—</strong><small id="autoLevelInfo">Ожидание данных</small></div>
-              <div class="water-live-cell"><span>t° воды · Самарская область</span><strong id="autoWaterTemp">—</strong><small id="autoTempInfo">Региональный прогноз, не замер Волги</small></div>
+              <div class="water-live-cell"><a id="autoLevelSource" href="https://xn--80adbch2buek4ak3i.xn--p1ai/navigatsiya/operativnaya_informatsiya_o_sudohodnyih_usloviyah/" target="_blank" rel="noopener" title="Официальный источник уровня">Уровень · Самара ↗</a><strong id="autoWaterLevel">—</strong><small id="autoLevelInfo">Ожидание данных</small></div>
+              <div class="water-live-cell"><a id="autoTempSource" href="https://rusoir.com/forecast/water-temperature/samarskoj-oblasti" target="_blank" rel="noopener" title="Источник регионального прогноза температуры">t° воды · область ↗</a><strong id="autoWaterTemp">—</strong><small id="autoTempInfo">Прогноз, не замер Волги</small></div>
             </div>
 <div class="level-history">
               <div class="level-history-heading"><strong>Как меняется уровень Волги</strong><span id="levelTrend">—</span></div>
@@ -192,23 +194,17 @@
               <div id="levelHistoryChart" class="level-history-chart" role="img" aria-label="История уровня воды по датам">
                 <div class="water-hint">Загружаю историю уровня…</div>
               </div>
-              <div id="levelHistoryNote" class="level-history-note"></div>
               <div id="levelSelectedDay" class="level-selected-day" aria-live="polite"></div>
             </div>
             <div class="water-meta"><span id="autoWaterMeta">Загружаю сводку…</span><button type="button" id="refreshWater" title="Заново получить файл сводки">Обновить</button></div>
-            <p>Уровень показывается только из автоматически полученных наблюдений гидропоста у Самары. Если источники не ответили, значение и график остаются пустыми. Температура — <b>расчётный прогноз по Самарской области</b>, не измерение в затоне. Для каждого значения указана дата.</p>
-            <div class="water-links">
-              <a href="https://www.snt-bugorok.ru/level/uroven-v-saratovskom-vodokhranilishche-u-samary-segodnya" target="_blank" rel="noopener">Уровень · Бугорок ↗</a>
-              <a href="https://rusoir.com/forecast/water-temperature/samarskoj-oblasti" target="_blank" rel="noopener">Температура · прогноз области ↗</a>
-              <a href="https://pop.pogoda-sv.ru/hydrometeocenter/region_hydrology/" target="_blank" rel="noopener">Наблюдения УГМС ↗</a>
-            </div>
+
           </div>
         </details>
         <div class="model-top"><div class="section-title">Сравнение моделей</div><div class="tiny-note">Прогноз ≠ измерение</div></div>
         <div class="model-table"><div class="model-head"><div>Модель</div><div>Ветер (порывы)</div><div>°C</div><div>мм рт. ст.</div></div><div id="modelRows"></div></div><div class="model-help">Нажми на модель: её данные появятся в карточках и на карте ветра.</div>
         <div class="chart-tabs" role="group" aria-label="График"><button class="chart-tab active" data-metric="wind_speed_10m">Ветер</button><button class="chart-tab" data-metric="temperature_2m">Температура</button><button class="chart-tab" data-metric="pressure_msl">Давление</button></div>
         <div class="chart-wrap" id="chartWrap"></div>
-        <div class="footer-note">Прогноз: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · ECMWF / NOAA / DWD. В затонах ветер и температура воды могут отличаться от расчёта для сетки модели. Уровень реки здесь не учитывается.</div>
+        
       </div>
     </div>
   </section>
@@ -535,12 +531,11 @@
     if(hourIndex<0)hourIndex=0;
     const missing=MODELS.filter(m=>!Array.isArray(data[m.id]?.hourly?.time)).map(m=>m.label);
     const stat=$('weatherStatus');
-    if(missing.length||forecastNote){
-      stat.hidden=false;
-      const missingMessage=missing.length?(Array.isArray(data.fallback?.hourly?.time)
-        ?'Резервный прогноз.':'Нет моделей: '+missing.join(', ')+'.'):'';
-      stat.innerHTML='<div class="banner neutral">'+esc([forecastNote,missingMessage].filter(Boolean).join(' · '))+'</div>';
-    }else{stat.hidden=true;stat.innerHTML=''}
+    const issues=[];
+    if(missing.length)issues.push((Array.isArray(data.fallback?.hourly?.time)?'Резервный прогноз · ':'Нет моделей: ')+missing.join(', '));
+    if(forecastNote.includes('может устареть'))issues.push('Прогноз давно не обновлялся');
+    if(issues.length){stat.hidden=false;stat.innerHTML='<div class="banner neutral">'+esc(issues.join(' · '))+'</div>'}
+    else{stat.hidden=true;stat.innerHTML=''}
     $('weatherContent').hidden=false;
     if(!valid.some(d=>d===forecast[activeModel]))activeModel=MODELS.find(m=>Array.isArray(forecast[m.id]?.hourly?.time))?.id||activeModel;
     renderAll();
@@ -651,13 +646,13 @@
     return (cm>0?'+':cm<0?'−':'')+Math.abs(cm).toFixed(0)+' см';
   }
   function renderHistory(){
-    const el=$('levelHistoryChart'),note=$('levelHistoryNote'),trend=$('levelTrend');
+    const el=$('levelHistoryChart'),trend=$('levelTrend');
     if(!Array.isArray(waterHistory?.observations)){
-      el.innerHTML='<div class="water-hint">Не удалось загрузить историю уровня.</div>';note.textContent='';trend.textContent='—';return;
+      el.innerHTML='<div class="water-hint">История уровня недоступна</div>';trend.textContent='—';return;
     }
     const all=waterHistory.observations.filter(p=>p.provenance==='automated_source'&&historyValid(p)).sort((a,b)=>a.date.localeCompare(b.date));
     if(!all.length){
-      el.innerHTML='<div class="water-hint">Автоматическая история пока недоступна: источник не ответил. Значения со скриншотов не используются.</div>';note.textContent='График появится после получения реальных датированных наблюдений.';trend.textContent='—';return;
+      el.innerHTML='<div class="water-hint">Пока нет наблюдений</div>';trend.textContent='—';return;
     }
     const maxDate=all[all.length-1].date;
     const end=Date.parse(maxDate+'T00:00:00Z'),limit=end-(levelRange-1)*86400000;
@@ -668,8 +663,7 @@
       Math.round((last.value-prev.value)*100):null;
     trend.textContent=last.value.toFixed(2).replace('.',',')+' м БС'+
       (delta!==null?' · '+formatDelta(delta)+' за сутки':'');
-    note.textContent='Данные: '+points.length+' дней · последний замер '+hydrologyDate(last.date)+
-      '. Только автоматически полученные значения. Пропуски не заполняются.';
+
     document.querySelectorAll('[data-level-range]').forEach(b=>b.classList.toggle('active',Number(b.dataset.levelRange)===levelRange));
     if(points.length===1){
       el.innerHTML='<div class="water-hint">'+hydrologyDate(last.date)+': '+round(last.value,2)+' м БС</div>';return;
@@ -750,9 +744,9 @@
     cellValue.textContent=display+' '+String(rec.unit||'');
     const source=rec.kind==='regional_forecast'?'областной прогноз':rec.kind==='gauge_relative'?'относительный уровень поста':'гидропост';
     const date=rec.observedOn?hydrologyDate(rec.observedOn):'дата не известна';
-    info.textContent=source+' · '+date+
-      (rec.provenance==='user_screenshot'?' · по скриншоту, автообновление не подтверждено':'')+
-      (rec.status==='stale'?' · устарело':'');
+    info.textContent=date+(rec.status==='stale'?' · устарело':'');
+    const link=$(field==='level'?'autoLevelSource':'autoTempSource');
+    if(typeof rec.sourceUrl==='string'&&rec.sourceUrl.startsWith('https://'))link.href=rec.sourceUrl;
     cellValue.classList.toggle('stale-water',rec.status==='stale');
     return rec.status==='ok';
   }

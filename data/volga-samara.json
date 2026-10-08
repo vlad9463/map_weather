@@ -1,6 +1,6 @@
 {
   "station": "Волга у Самары / Самарская область",
-  "updatedAt": "2026-10-08T12:28:07.140Z",
+  "updatedAt": "2026-10-08T13:17:18.148Z",
   "level": {
     "value": 28.63,
     "unit": "м БС",
@@ -10,7 +10,7 @@
     "sourceUrl": "https://www.snt-bugorok.ru/level/uroven-v-saratovskom-vodokhranilishche-u-samary-segodnya",
     "status": "ok",
     "provenance": "user_screenshot",
-    "warning": "Записано из скриншота от 8 октября; автоматическое обновление ещё не подтверждено"
+    "warning": "Источник не ответил"
   },
   "temperature": {
     "value": 8.1,
@@ -19,10 +19,10 @@
     "kind": "regional_forecast",
     "sourceName": "Русоир (расчёт по Самарской области)",
     "sourceUrl": "https://rusoir.com/forecast/water-temperature/samarskoj-oblasti",
-    "retrievedAt": "2026-10-08T12:28:07.140Z",
+    "retrievedAt": "2026-10-08T13:17:18.148Z",
     "status": "ok"
   },
   "errors": {
-    "level": "Доступ источником ограничен; резерв: Доступ источником ограничен"
+    "level": "Бугорок (м БС): Доступ источником ограничен; Бугорок (см): Доступ источником ограничен; РИС: РИС не отдал текущую строку гидропоста Самара"
   }
 }

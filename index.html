@@ -75,6 +75,20 @@
       .sheet.collapsed .sheet-head{padding:10px 10px 10px 14px}
       body:has(.sheet.collapsed) .locate{bottom:25px}
     }
+    .hour-nav{display:flex;align-items:center;gap:5px}
+    .day-jump{border:1px solid #dfe9e1;border-radius:9px;padding:6px 8px;background:#f3f6f2;
+      font-size:11px;font-weight:700;color:#376a59;white-space:nowrap;cursor:pointer}
+    .day-jump:hover:not(:disabled){background:#e1eee6}
+    .day-jump:disabled{opacity:.35;cursor:default}
+    .hour-strip{scrollbar-width:thin;scrollbar-color:#b5ccc0 transparent;overscroll-behavior-x:contain}
+    .hour-strip::-webkit-scrollbar{display:block;height:5px}
+    .hour-strip::-webkit-scrollbar-thumb{background:#b5ccc0;border-radius:10px}
+    .sheet-head .collapse-btn{flex:0 0 38px;width:38px;min-width:38px;margin-left:0;padding:9px;align-self:center}
+    @media(max-width:759px){
+      .sheet:not(.collapsed):not(.expanded){height:min(52dvh,440px)}
+      .hour-nav .tz-label{display:none}
+      .day-jump{padding:7px 8px}
+    }
   </style>
 </head>
 <body>
@@ -94,11 +108,11 @@
   <button class="locate" id="locateButton" title="Моё местоположение" aria-label="Показать моё местоположение"><svg width="21" height="21" fill="none" viewBox="0 0 24 24"><path d="M12 2v3m0 14v3M2 12h3m14 0h3M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
   <section class="sheet" id="sheet" aria-label="Прогноз выбранной точки">
     <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Изменить высоту панели прогноза"></div>
-    <div class="sheet-head"><div class="sheet-title-area"><div class="eyebrow">Прогноз для точки</div><div class="sheet-name" id="pointName">Самара · примерная точка</div><div class="coord" id="pointCoords">53.20000, 50.15000</div></div><button class="minor-btn collapse-btn" id="minimizeSheet" type="button" aria-expanded="true" aria-label="Свернуть прогноз">⌄</button><button class="minor-btn" id="saveButton" title="Сохранить точку">+ Сохранить</button><button class="minor-btn refresh-btn" id="refreshButton" title="Обновить прогноз" aria-label="Обновить прогноз"><svg width="17" height="17" fill="none" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.8 9A7 7 0 0 1 18.2 7L20 12M4 12l1.8 5A7 7 0 0 0 18.2 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+    <div class="sheet-head"><div class="sheet-title-area"><div class="eyebrow">Прогноз для точки</div><div class="sheet-name" id="pointName">Самара · примерная точка</div><div class="coord" id="pointCoords">53.20000, 50.15000</div></div><button class="minor-btn" id="saveButton" title="Сохранить точку">+ Сохранить</button><button class="minor-btn refresh-btn" id="refreshButton" title="Обновить прогноз" aria-label="Обновить прогноз"><svg width="17" height="17" fill="none" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.8 9A7 7 0 0 1 18.2 7L20 12M4 12l1.8 5A7 7 0 0 0 18.2 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button><button class="minor-btn collapse-btn" id="minimizeSheet" type="button" aria-expanded="true" aria-label="Свернуть прогноз">⌄</button></div>
     <div class="sheet-scroll" id="sheetScroll">
       <div id="weatherStatus" class="loading"><span class="spinner"></span> Получаю прогнозы трёх моделей…</div>
       <div id="weatherContent" hidden>
-        <div class="hour-title"><div class="section-title">Время прогноза</div><div class="tz-label">Самарское время · UTC+4</div></div>
+        <div class="hour-title"><div class="section-title">Время прогноза</div><div class="hour-nav"><span class="tz-label">Самара · UTC+4</span><button type="button" class="day-jump" id="prevDay" aria-label="Предыдущие сутки" title="На 24 часа назад">← 24ч</button><button type="button" class="day-jump" id="nextDay" aria-label="Следующие сутки" title="На 24 часа вперёд">24ч →</button></div></div>
         <div id="hourStrip" class="hour-strip" aria-label="Выбор времени прогноза"></div>
         <div class="metrics" id="metrics"></div>
         <div class="sun-row" id="sunRow"></div>
@@ -111,7 +125,7 @@
     </div>
   </section>
   <div class="scrim" id="scrim"></div>
-  <aside class="drawer" id="drawer" aria-label="Сохранённые точки" aria-hidden="true"><div class="drawer-head"><div><div class="eyebrow">Без искусственного лимита</div><h2>Мои точки <span id="drawerCount" class="muted"></span></h2></div><button class="round" id="closeDrawer" aria-label="Закрыть">✕</button></div><div class="drawer-body"><div id="spotList"></div><div class="drawer-foot"><div class="section-title" style="margin-bottom:12px">Резервная копия точек</div><div class="backup-row"><button class="minor-btn" id="exportButton">↓ Экспорт JSON</button><button class="minor-btn" id="importButton">↑ Импорт JSON</button><input type="file" id="importFile" accept="application/json,.json" hidden></div><p>Точки хранятся только в этом браузере на этом устройстве. Для переноса или защиты от очистки Safari сохраняй экспортный файл. Ограничение — объём хранилища устройства.</p><p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · спутниковая подложка © Esri и поставщики данных · погода © Open-Meteo.</p></div></div></aside>
+  <aside class="drawer" id="drawer" aria-label="Сохранённые точки" aria-hidden="true"><div class="drawer-head"><div><div class="eyebrow">Без искусственного лимита</div><h2>Мои точки <span id="drawerCount" class="muted"></span></h2></div><button class="round" id="closeDrawer" aria-label="Закрыть">✕</button></div><div class="drawer-body"><div id="spotList"></div><div class="drawer-foot"><div class="section-title" style="margin-bottom:12px">Резервная копия точек</div><div class="backup-row"><button class="minor-btn" id="exportButton">↓ Экспорт JSON</button><button class="minor-btn" id="importButton">↑ Импорт JSON</button><input type="file" id="importFile" accept="application/json,.json" hidden></div><p>Точки хранятся только в этом браузере на этом устройстве. Для переноса или защиты от очистки Safari сохраняй экспортный файл. Ограничение — объём хранилища устройства.</p><p><a href="https://www.esri.com/en-us/arcgis/products/arcgis-online/resources" target="_blank" rel="noopener">© Esri и поставщики данных</a> · спутниковая подложка © Esri и поставщики данных · погода © Open-Meteo.</p></div></div></aside>
   <div class="dialog-wrap" id="dialogWrap" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="dialog"><h3 id="dialogTitle">Сохранить точку</h3><p id="dialogDesc">Укажи название — например, «Сок · затон у камыша».</p><label class="sr" for="spotNameInput">Название точки</label><input id="spotNameInput" maxlength="80" autocomplete="off" placeholder="Название точки"><div class="dialog-actions"><button class="btn secondary" id="cancelDialog">Отмена</button><button class="btn" id="confirmDialog">Сохранить</button></div></div></div>
   <script async src="https://telegram.org/js/telegram-web-app.js" onload="window.Telegram?.WebApp?.ready();window.Telegram?.WebApp?.expand()"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -151,7 +165,7 @@
   let windEnabled=prefs.windEnabled!==false,windGrid=[],windController=null,windSeq=0,windTimer=0,windSignature='',windFetchedAt=0;
   let mapTileFailures=0,satTileFailures=0,windLoadError=false,windLoading=false;
   const cache=new Map();
-  const MAP_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> · <a href="https://www.openstreetmap.fr/usage/" target="_blank">OSM France</a>';
+  const MAP_ATTR='Map &copy; Esri, HERE, USGS, TomTom and GIS User Community';
   const SAT_ATTR='Imagery &copy; Esri, Vantor, Earthstar Geographics, GIS User Community';
   // A failed image can otherwise leave large empty squares. Try a second legal tile host.
   const ResilientTileLayer=typeof L!=='undefined'?L.TileLayer.extend({
@@ -184,10 +198,9 @@
     if(typeof L==='undefined'){$('weatherStatus').innerHTML='<div class="banner">Не удалось загрузить библиотеку карты. Проверь подключение к интернету и обнови страницу.</div>';return}
     map=L.map('map',{zoomControl:false,preferCanvas:true,worldCopyJump:true,attributionControl:true,zoomAnimation:true}).setView([prefs.lat??DEFAULT.lat,prefs.lng??DEFAULT.lng],prefs.zoom??11);
     map.attributionControl.setPosition('topright');
-    baseMap=new ResilientTileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    baseMap=new ResilientTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{
       attribution:MAP_ATTR,maxZoom:19,keepBuffer:4,updateWhenIdle:true,backupTiles:[
-        (z,x,y)=>`https://a.tile.openstreetmap.fr/osmfr/${z}/${x}/${y}.png`,
-        (z,x,y)=>`https://tile.openstreetmap.de/${z}/${x}/${y}.png`
+        (z,x,y)=>`https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${z}/${y}/${x}`
       ]
     }).setZIndex(1).addTo(map);
     satMap=new ResilientTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
@@ -330,8 +343,8 @@
   }
 
   function renderMarkers(){if(!spotMarkers)return;spotMarkers.clearLayers();for(const s of spots){if(s.id===selected.id)continue;L.marker([s.lat,s.lng],{icon:markerIcon(true,false)}).addTo(spotMarkers).on('click',()=>{selectPoint(s,true);map.panTo([s.lat,s.lng])})} $('spotCount').textContent=String(spots.length);$('drawerCount').textContent=String(spots.length);}
-  function selectPoint(s,expand){selected={lat:s.lat,lng:s.lng,id:s.id??null,name:s.name??'Точка на карте'};if(selectedMarker)selectedMarker.setLatLng([s.lat,s.lng]).setIcon(markerIcon(!!selected.id,true));renderMarkers();$('pointName').textContent=selected.name;$('pointCoords').textContent=`${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`; $('saveButton').textContent=selected.id?'✎ Название':'+ Сохранить';$('saveButton').classList.toggle('is-saved',!!selected.id);if(expand)setSheetState('expanded');loadWeather();}
-  function openForecast(expand){if(expand)setSheetState('expanded')}
+  function selectPoint(s,expand){selected={lat:s.lat,lng:s.lng,id:s.id??null,name:s.name??'Точка на карте'};if(selectedMarker)selectedMarker.setLatLng([s.lat,s.lng]).setIcon(markerIcon(!!selected.id,true));renderMarkers();$('pointName').textContent=selected.name;$('pointCoords').textContent=`${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`; $('saveButton').textContent=selected.id?'✎ Название':'+ Сохранить';$('saveButton').classList.toggle('is-saved',!!selected.id);if(expand)setSheetState('normal');loadWeather();}
+  function openForecast(expand){if(expand)setSheetState('normal')}
   function status(msg,error=false){const s=$('weatherStatus');s.hidden=false;s.innerHTML=error?`<div class="banner">${esc(msg)}</div>`:`<span class="spinner"></span>${esc(msg)}`}
   async function fetchWeatherModel(model,lat,lon,timeoutMs=FORECAST_TIMEOUT){
     const url=new URL('https://api.open-meteo.com/v1/forecast');
@@ -418,10 +431,44 @@
     renderMetrics();renderModels();renderChart();renderWind();
     scheduleWindGrid(true);
   }
-  function renderHours(){const strip=$('hourStrip');strip.innerHTML='';const start=Math.max(0,hours.findIndex(h=>dateMs(h)>=Date.now()-30*60*1000));for(let i=start;i<hours.length&&i<start+48;i+=2){let h=hours[i];const b=document.createElement('button');b.className='hour-chip'+(hourIndex===i?' active':'');b.type='button';b.innerHTML=`<strong>${clock(h)}</strong><small>${dayLabel(h)}</small>`;b.onclick=()=>{hourIndex=i;renderAll(false);b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})};strip.appendChild(b)}
-    // When selecting a time between displayed chips, show the closest visible chip.
-    const selected=strip.querySelector('.active');if(selected)selected.scrollIntoView({block:'nearest',inline:'nearest'});
+  function renderHours(){
+    const strip=$('hourStrip');strip.innerHTML='';
+    const initial=Math.max(0,hours.findIndex(h=>dateMs(h)>=Date.now()-30*60*1000));
+    // Show all available days, not just 48 hours.
+    for(let i=initial;i<hours.length;i+=2){
+      const hour=hours[i],btn=document.createElement('button');
+      btn.type='button';btn.className='hour-chip'+(hourIndex===i?' active':'');
+      btn.dataset.hourIndex=String(i);
+      btn.innerHTML='<strong>'+clock(hour)+'</strong><small>'+dayLabel(hour)+'</small>';
+      btn.onclick=()=>{hourIndex=i;renderAll(false);btn.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'})};
+      strip.appendChild(btn);
+    }
+    const selectedBtn=strip.querySelector('[data-hour-index="'+hourIndex+'"]');
+    if(selectedBtn)selectedBtn.scrollIntoView({block:'nearest',inline:'nearest'});
+    updateDayButtons();
   }
+  function updateDayButtons(){
+    const first=Math.max(0,hours.findIndex(h=>dateMs(h)>=Date.now()-30*60*1000));
+    $('prevDay').disabled=hourIndex<=first;
+    $('nextDay').disabled=!hours.length||hourIndex+24>=hours.length;
+  }
+  function jumpDay(delta){
+    const buttons=[...$('hourStrip').querySelectorAll('[data-hour-index]')];
+    if(!buttons.length)return;
+    const target=Math.max(0,Math.min(hours.length-1,hourIndex+delta));
+    const nearest=buttons.reduce((a,b)=>Math.abs(Number(a.dataset.hourIndex)-target)<=Math.abs(Number(b.dataset.hourIndex)-target)?a:b);
+    const index=Number(nearest.dataset.hourIndex);
+    if(index===hourIndex)return;
+    hourIndex=index;renderAll(false);
+    nearest.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});
+  }
+  $('prevDay').onclick=()=>jumpDay(-24);
+  $('nextDay').onclick=()=>jumpDay(24);
+  $('hourStrip').addEventListener('wheel',e=>{
+    const strip=$('hourStrip');
+    if(strip.scrollWidth<=strip.clientWidth||Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;
+    strip.scrollLeft+=e.deltaY;e.preventDefault();
+  },{passive:false});
   function renderMetrics(){let h=hours[hourIndex],v=firstValues(h);if(!v)return;
     let metrics=[['Ветер',round(v.wind_speed_10m,1), 'м/с',`Порывы: ${round(v.wind_gusts_10m,1)} м/с · ${windDir(v.wind_direction_10m)}`],['Температура',round(v.temperature_2m,1),'°C',activeModel.toUpperCase()+' · воздух 2 м'],['Давление',round(mmHg(v.pressure_msl)),'мм рт. ст.','Приведено к уровню моря']];
     $('metrics').innerHTML=metrics.map(x=>`<div class="metric"><div class="lbl">${x[0]}</div><div class="val">${x[1]} <span class="unit">${x[2]}</span></div><div class="extra">${x[3]}</div></div>`).join('');
@@ -446,7 +493,14 @@
     for(const s of series){let path='',on=false;s.ys.forEach((v,i)=>{if(!finite(v)){on=false;return}path+=(on?' L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);on=true});if(path)chunks.push(`<path class="chart-path" stroke="${s.m.color}" stroke-width="${s.m.id===activeModel?3.6:1.6}" opacity="${s.m.id===activeModel?1:.57}" d="${path}"/>`)}
     $('chartWrap').innerHTML=`<svg role="img" aria-label="Прогноз по моделям на следующие 24 часа" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${chunks.join('')}</svg><div style="display:flex;justify-content:space-between;gap:8px;color:#92a199;font-size:10px;padding:3px 5px"><span>Следующие 24 часа</span><span>${key==='wind_speed_10m'?'м/с':key==='temperature_2m'?'°C':'мм рт. ст.'}</span></div>`;
   }
-  function renderAll(resetHours=true){if(resetHours)renderHours();else{document.querySelectorAll('.hour-chip').forEach(b=>b.classList.remove('active'));renderHours()}renderMetrics();renderModels();renderChart();renderWind()}
+  function renderAll(resetHours=true){
+    if(resetHours)renderHours();
+    else{
+      document.querySelectorAll('#hourStrip .hour-chip').forEach(b=>b.classList.toggle('active',Number(b.dataset.hourIndex)===hourIndex));
+      updateDayButtons();
+    }
+    renderMetrics();renderModels();renderChart();renderWind();
+  }
   function setSheetState(state){
     const sheet=$('sheet');sheet.classList.toggle('collapsed',state==='collapsed');
     sheet.classList.toggle('expanded',state==='expanded');
@@ -462,7 +516,7 @@
   let handleStartY=null;
   $('sheetHandle').addEventListener('touchstart',e=>{handleStartY=e.touches[0]?.clientY??null},{passive:true});
   $('sheetHandle').addEventListener('touchend',e=>{if(handleStartY===null)return;const dy=(e.changedTouches[0]?.clientY??handleStartY)-handleStartY;handleStartY=null;if(dy>45)setSheetState('collapsed');else if(dy<-45)setSheetState('expanded')},{passive:true});
-  setSheetState(['collapsed','normal','expanded'].includes(prefs.sheetState)?prefs.sheetState:'normal');
+  setSheetState(prefs.sheetState==='collapsed'?'collapsed':'normal');
   $('refreshButton').onclick=()=>loadWeather(true);
   document.querySelectorAll('.chart-tab').forEach(b=>b.onclick=()=>{chartMetric=b.dataset.metric;document.querySelectorAll('.chart-tab').forEach(a=>a.classList.toggle('active',a===b));renderChart()});
   $('locateButton').onclick=()=>{if(!map)return;if(!navigator.geolocation){alert('Геолокация не поддерживается.');return}navigator.geolocation.getCurrentPosition(p=>{const s={lat:p.coords.latitude,lng:p.coords.longitude,name:'Моё местоположение'};map.setView([s.lat,s.lng],13);selectPoint(s,true)},()=>alert('Не удалось определить координаты. Разреши геолокацию в настройках Safari.'),{enableHighAccuracy:true,timeout:12000,maximumAge:300000})};

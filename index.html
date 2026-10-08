@@ -118,6 +118,18 @@
       background:#fff;border:1px solid #dbe6de;border-radius:9px;font-size:14px;color:#345347}
     .water-save{margin-top:9px;width:100%;padding:10px;color:#fff;background:#2d6658;border:0;border-radius:9px;font-weight:650}
     #waterSaveStatus{font-size:11px;color:#376958;margin-top:6px}
+    .water-live-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:8px 0}
+    .water-live-cell{background:#fff;border:1px solid #dce9e2;border-radius:11px;padding:10px;min-width:0}
+    .water-live-cell span{display:block;font-size:10px;color:#658374}
+    .water-live-cell strong{font-size:20px;display:block;font-weight:760;margin:4px 0;color:#255c50;white-space:nowrap}
+    .water-live-cell small{display:block;font-size:10px;line-height:1.35;color:#668276}
+    .water-live-cell .stale-water{color:#b47a4b}
+    .water-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
+    .water-meta span{color:#6c8277;font-size:10px}
+    .water-meta button{border:1px solid #d3e5d8;color:#356b59;border-radius:8px;background:#fff;padding:6px 9px;font-size:11px}
+    .water-manual{display:flex;justify-content:space-between;align-items:center;gap:8px;
+      padding-top:11px;margin-top:12px;border-top:1px solid #dfece2;font-size:11px;color:#527065}
+    .water-manual span{text-align:right;font-size:10px;color:#6d877d}
   </style>
 </head>
 <body>
@@ -149,13 +161,20 @@
         <div class="metrics" id="metrics"></div>
         <div class="sun-row" id="sunRow"></div>
         <details class="water-card" id="waterCard">
-          <summary><strong>Волга · уровень и температура воды</strong><span id="waterPreview">Показания у Самары</span></summary>
+          <summary><strong>Волга · уровень и температура воды</strong><span id="waterPreview">Автоданные</span></summary>
           <div class="water-body">
-            <p>Измерения относятся к Волге у Самары, а не к каждому затону. Приложение пока не обновляет их автоматически — здесь можно сохранить измерения с датой.</p>
+            <div class="water-live-grid">
+              <div class="water-live-cell"><span>Уровень · Самара</span><strong id="autoWaterLevel">—</strong><small id="autoLevelInfo">Ожидание данных</small></div>
+              <div class="water-live-cell"><span>t° воды · Самарская область</span><strong id="autoWaterTemp">—</strong><small id="autoTempInfo">Региональный прогноз, не замер Волги</small></div>
+            </div>
+            <div class="water-meta"><span id="autoWaterMeta">Загружаю сводку…</span><button type="button" id="refreshWater" title="Заново получить файл сводки">Обновить</button></div>
+            <p>Уровень — гидропост Волги у Самары, температура — <b>ориентировочный региональный прогноз</b> (не измерение в затоне). Данные обновляются на GitHub по расписанию, если источники доступны. Смотри дату рядом с каждым значением.</p>
             <div class="water-links">
               <a href="https://www.snt-bugorok.ru/level/uroven-v-saratovskom-vodokhranilishche-u-samary-segodnya" target="_blank" rel="noopener">Уровень · Бугорок ↗</a>
-              <a href="https://pop.pogoda-sv.ru/hydrometeocenter/region_hydrology/" target="_blank" rel="noopener">Температура · УГМС ↗</a>
+              <a href="https://rusoir.com/forecast/water-temperature/samarskoj-oblasti" target="_blank" rel="noopener">Температура · прогноз области ↗</a>
+              <a href="https://pop.pogoda-sv.ru/hydrometeocenter/region_hydrology/" target="_blank" rel="noopener">Наблюдения УГМС ↗</a>
             </div>
+            <div class="water-manual"><strong>Мои измерения (вручную)</strong><span id="waterManualPreview">—</span></div>
             <div class="water-form">
               <label>Уровень, м БС<input id="volgaLevel" inputmode="decimal" type="text" placeholder="Напр. 28,58" autocomplete="off"></label>
               <label>Температура, °C<input id="volgaTemp" inputmode="decimal" type="text" placeholder="Напр. 12,5" autocomplete="off"></label>
@@ -564,7 +583,7 @@
     const readings=[];
     if(finite(r.level))readings.push(round(r.level,2)+' м БС');
     if(finite(r.temperature))readings.push(round(r.temperature,1)+' °C');
-    $('waterPreview').textContent=readings.length?readings.join(' · ')+(r.date?' · '+r.date:''):'Показания у Самары';
+    $('waterManualPreview').textContent=readings.length?readings.join(' · ')+(r.date?' · '+r.date:''):'Нет записанных измерений';
   }
   $('saveWater').onclick=()=>{
     const parse=(id,min,max)=>{
@@ -578,10 +597,53 @@
       if((level!==null||temperature!==null)&&!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('Укажи дату измерения');
       waterRecord={level,temperature,date};
       if(!saveJson(WATER_STORAGE,waterRecord))return;
-      renderWaterRecord();$('waterSaveStatus').textContent='Сохранено на этом устройстве. Автоматического обновления пока нет.';
+      renderWaterRecord();$('waterSaveStatus').textContent='Твои показания сохранены на этом устройстве отдельно от автоматических данных.';
     }catch(e){$('waterSaveStatus').textContent=e.message||'Ошибка ввода'}
   };
   renderWaterRecord();
+  function hydrologyDate(iso){
+    if(typeof iso!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(iso))return 'дата неизвестна';
+    const d=new Date(iso+'T12:00:00+04:00');
+    return d.toLocaleDateString('ru-RU',{timeZone:'Europe/Samara',day:'numeric',month:'short',year:'numeric'});
+  }
+  function hydroReading(data,field){
+    const rec=data&&data[field],val=rec?.value;
+    const cellValue=$(field==='level'?'autoWaterLevel':'autoWaterTemp');
+    const info=$(field==='level'?'autoLevelInfo':'autoTempInfo');
+    if(!finite(val)){
+      cellValue.textContent='—';
+      info.textContent=field==='level'?'Нет свежего уровня из источника':'Нет региональной оценки температуры';
+      return false;
+    }
+    const display=field==='level'?round(val,rec.unit==='м БС'?2:0):round(val,1);
+    cellValue.textContent=display+' '+String(rec.unit||'');
+    const source=rec.kind==='regional_forecast'?'областной прогноз':rec.kind==='gauge_relative'?'относительный уровень поста':'гидропост';
+    const date=rec.observedOn?hydrologyDate(rec.observedOn):'дата не известна';
+    info.textContent=source+' · '+date+(rec.status==='stale'?' · устарело':'');
+    cellValue.classList.toggle('stale-water',rec.status==='stale');
+    return rec.status==='ok';
+  }
+  async function fetchHydrology(){
+    $('autoWaterMeta').textContent='Получаю данные гидрологии…';
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),10000);
+    try{
+      const res=await fetch('./data/volga-samara.json?v='+Math.floor(Date.now()/300000),{cache:'no-store',signal:ctrl.signal});
+      if(!res.ok)throw Error('HTTP '+res.status);
+      const data=await res.json();
+      if(!data||typeof data!=='object')throw Error('Неверный формат');
+      const level=hydroReading(data,'level'),temp=hydroReading(data,'temperature');
+      if(level||temp){
+        $('waterPreview').textContent=level&&temp?'Данные загружены':level?'Есть уровень':'Есть температура';
+      }else $('waterPreview').textContent='Пока нет новых данных';
+      if(data.updatedAt){
+        $('autoWaterMeta').textContent='Последняя проверка: '+new Date(data.updatedAt).toLocaleString('ru-RU',{timeZone:'Europe/Samara',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+' (Самара)';
+      }else $('autoWaterMeta').textContent='Автоматический сбор ожидает первого запуска';
+    }catch(error){
+      $('autoWaterMeta').textContent='Не удалось получить файл данных: '+String(error?.message||error);
+    }finally{clearTimeout(timer)}
+  }
+  $('refreshWater').onclick=fetchHydrology;
+  fetchHydrology();
   function renderModels(){
     const hour=hours[hourIndex],node=$('modelRows');
     node.innerHTML=MODELS.map(m=>{
@@ -640,7 +702,11 @@
   $('importFile').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const raw=JSON.parse(await f.text());if(!Array.isArray(raw.spots)||raw.spots.length>100000)throw Error('Неизвестный формат');let incoming=raw.spots.map(s=>({id:String(s.id||'import_'+Math.random().toString(36).slice(2)),name:String(s.name||'Без названия').slice(0,80),lat:Number(s.lat),lng:Number(s.lng)})).filter(s=>finite(s.lat)&&finite(s.lng)&&Math.abs(s.lat)<=90&&Math.abs(s.lng)<=180);if(!incoming.length)throw Error('В файле нет подходящих точек');const seen=new Set(spots.map(s=>s.id));for(let s of incoming){if(seen.has(s.id)){const existing=spots.find(a=>a.id===s.id);if(existing&&existing.lat===s.lat&&existing.lng===s.lng)continue;s.id='import_'+Math.random().toString(36).slice(2)}seen.add(s.id);spots.push(s)}syncSpots();alert('Точки импортированы: '+incoming.length)}catch(err){alert('Не удалось импортировать точки: '+err.message)}finally{e.target.value=''}};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeDialog()}});
   if(window.Telegram?.WebApp){window.Telegram.WebApp.ready();window.Telegram.WebApp.expand()}
-  if('serviceWorker'in navigator&&location.protocol==='https:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  // Forecast and maps require internet: unregister the old offline shell, which can serve stale basemaps.
+  if('serviceWorker' in navigator && location.protocol==='https:')window.addEventListener('load',()=>{
+    navigator.serviceWorker.getRegistrations().then(list=>Promise.all(list.filter(reg=>new URL(reg.scope).pathname.startsWith('/map_weather/')).map(reg=>reg.unregister()))).catch(()=>{});
+    if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('rybtochki-shell-')).map(k=>caches.delete(k)))).catch(()=>{});
+  });
   initMap();
   </script>
 </body>

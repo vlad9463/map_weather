@@ -1,6 +1,6 @@
 {
   "station": "Волга у Самары / Самарская область",
-  "updatedAt": "2026-10-08T13:18:07.227Z",
+  "updatedAt": "2026-10-08T13:27:42.464Z",
   "level": {
     "value": 28.63,
     "unit": "м БС",
@@ -19,7 +19,7 @@
     "kind": "regional_forecast",
     "sourceName": "Русоир (расчёт по Самарской области)",
     "sourceUrl": "https://rusoir.com/forecast/water-temperature/samarskoj-oblasti",
-    "retrievedAt": "2026-10-08T13:18:07.227Z",
+    "retrievedAt": "2026-10-08T13:27:42.464Z",
     "status": "ok"
   },
   "errors": {}

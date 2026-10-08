@@ -196,20 +196,12 @@
               <div id="levelSelectedDay" class="level-selected-day" aria-live="polite"></div>
             </div>
             <div class="water-meta"><span id="autoWaterMeta">Загружаю сводку…</span><button type="button" id="refreshWater" title="Заново получить файл сводки">Обновить</button></div>
-            <p>Уровень — гидропост Волги у Самары, температура — <b>ориентировочный региональный прогноз</b> (не измерение в затоне). Данные обновляются на GitHub по расписанию, если источники доступны. Смотри дату рядом с каждым значением.</p>
+            <p>Уровень показывается только из автоматически полученных наблюдений гидропоста у Самары. Если источники не ответили, значение и график остаются пустыми. Температура — <b>расчётный прогноз по Самарской области</b>, не измерение в затоне. Для каждого значения указана дата.</p>
             <div class="water-links">
               <a href="https://www.snt-bugorok.ru/level/uroven-v-saratovskom-vodokhranilishche-u-samary-segodnya" target="_blank" rel="noopener">Уровень · Бугорок ↗</a>
               <a href="https://rusoir.com/forecast/water-temperature/samarskoj-oblasti" target="_blank" rel="noopener">Температура · прогноз области ↗</a>
               <a href="https://pop.pogoda-sv.ru/hydrometeocenter/region_hydrology/" target="_blank" rel="noopener">Наблюдения УГМС ↗</a>
             </div>
-            <div class="water-manual"><strong>Мои измерения (вручную)</strong><span id="waterManualPreview">—</span></div>
-            <div class="water-form">
-              <label>Уровень, м БС<input id="volgaLevel" inputmode="decimal" type="text" placeholder="Напр. 28,58" autocomplete="off"></label>
-              <label>Температура, °C<input id="volgaTemp" inputmode="decimal" type="text" placeholder="Напр. 12,5" autocomplete="off"></label>
-              <label>Дата измерения<input id="volgaDate" type="date"></label>
-            </div>
-            <button id="saveWater" class="water-save" type="button">Сохранить показания</button>
-            <div id="waterSaveStatus" role="status"></div>
           </div>
         </details>
         <div class="model-top"><div class="section-title">Сравнение моделей</div><div class="tiny-note">Прогноз ≠ измерение</div></div>
@@ -229,7 +221,6 @@
   'use strict';
   // Точки и настройки остаются в браузере; сервер этого приложения их не получает.
   const $ = id => document.getElementById(id);
-  const WATER_STORAGE='rybtochki-volga-water-v1';
   const STORAGE='rybtochki-spots-v1', PREF='rybtochki-prefs-v1';
   const MODELS=[
     {id:'ecmwf',api:'ecmwf_ifs025',label:'ECMWF',color:'#e07c5f'},
@@ -257,7 +248,6 @@
   const prefs=parseJson(PREF,{});
   let spots=(Array.isArray(parseJson(STORAGE,[]))?parseJson(STORAGE,[]):[]).filter(s=>s&&typeof s.name==='string'&&finite(s.lat)&&finite(s.lng)&&Math.abs(s.lat)<=90&&Math.abs(s.lng)<=180&&typeof s.id==='string');
   let selected={...DEFAULT,id:null,name:'Самара · примерная точка'};
-  let waterRecord=parseJson(WATER_STORAGE,null);
   let activeModel=MODELS.some(m=>m.id===prefs.activeModel)?prefs.activeModel:'ecmwf';
   let map,baseMap,satMap,selectedMarker,spotMarkers,forecast={},hours=[],hourIndex=0,chartMetric='wind_speed_10m',loadSeq=0;
   let windEnabled=prefs.windEnabled!==false,windGrid=[],windController=null,windSeq=0,windTimer=0,windSignature='',windFetchedAt=0;
@@ -742,32 +732,6 @@
   }
   fetchLevelHistory();
 
-  function renderWaterRecord(){
-    const r=waterRecord&&typeof waterRecord==='object'?waterRecord:{};
-    $('volgaLevel').value=finite(r.level)?String(r.level).replace('.',','):'';
-    $('volgaTemp').value=finite(r.temperature)?String(r.temperature).replace('.',','):'';
-    $('volgaDate').value=r.date||'';
-    const readings=[];
-    if(finite(r.level))readings.push(round(r.level,2)+' м БС');
-    if(finite(r.temperature))readings.push(round(r.temperature,1)+' °C');
-    $('waterManualPreview').textContent=readings.length?readings.join(' · ')+(r.date?' · '+r.date:''):'Нет записанных измерений';
-  }
-  $('saveWater').onclick=()=>{
-    const parse=(id,min,max)=>{
-      const raw=$(id).value.trim();if(!raw)return null;
-      const val=Number(raw.replace(',','.'));
-      if(!Number.isFinite(val)||val<min||val>max)throw Error('Проверь введённое число');
-      return val;
-    };
-    try{
-      const level=parse('volgaLevel',0,70),temperature=parse('volgaTemp',-3,40),date=$('volgaDate').value;
-      if((level!==null||temperature!==null)&&!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('Укажи дату измерения');
-      waterRecord={level,temperature,date};
-      if(!saveJson(WATER_STORAGE,waterRecord))return;
-      renderWaterRecord();$('waterSaveStatus').textContent='Твои показания сохранены на этом устройстве отдельно от автоматических данных.';
-    }catch(e){$('waterSaveStatus').textContent=e.message||'Ошибка ввода'}
-  };
-  renderWaterRecord();
   function hydrologyDate(iso){
     if(typeof iso!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(iso))return 'дата неизвестна';
     const d=new Date(iso+'T12:00:00+04:00');

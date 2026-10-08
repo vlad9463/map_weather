@@ -384,10 +384,9 @@
       if(seq!==windSeq||!windEnabled)return;
       const nearest=closestPublishedNode(published,center.lat,center.lng);
       if(!nearest.node||nearest.distance>55)throw Error('Ветер на карте доступен в районе Волги, Самары и Сока');
-      const nodes=published.points.filter(p=>Array.isArray(p[activeModel]?.hourly?.time)).map(p=>({
-        ...p,km:kmDistance(center.lat,center.lng,p.lat,p.lon)
-      })).sort((a,b)=>a.km-b.km).slice(0,20);
+      const nodes=published.points.filter(p=>Array.isArray(p[activeModel]?.hourly?.time)&&finite(p.lat)&&finite(p.lon));
       if(!nodes.length)throw Error('Нет узлов ветра для '+activeModel);
+      // Use all valid model nodes, never just the 20 closest to the center.
       windGrid=nodes.map(p=>({lat:p.lat,lon:p.lon,hourly:p[activeModel].hourly}));
       windSignature=signature;windFetchedAt=Date.now();windLoading=false;windLoadError=false;updateWindButton();
       $('windControl').title='Готовые прогнозы '+activeWindModel().label+' · обновляются GitHub Actions';
@@ -400,49 +399,127 @@
       const ctx=$('windOverlay').getContext('2d');if(ctx)ctx.clearRect(0,0,$('windOverlay').width,$('windOverlay').height);
     }
   }
+
+  // Convert meteorological direction (wind FROM north-clockwise) into screen
+  // east/down components. Never directly average angles across 0/360 degrees.
   function windVectors(hour){
-    return windGrid.map(p=>{
-      const h=p.hourly;if(!Array.isArray(h?.time))return null;
-      let index=h.time.indexOf(hour);
-      if(index<0){const ts=dateMs(hour);let best=Infinity;for(let i=0;i<h.time.length;i++){const d=Math.abs(dateMs(h.time[i])-ts);if(d<best){best=d;index=i}}}
-      const speed=h.wind_speed_10m?.[index],dir=h.wind_direction_10m?.[index];
-      if(!finite(speed)||!finite(dir))return null;
-      const rad=dir*Math.PI/180,xy=map.latLngToContainerPoint([p.lat,p.lon]);
-      return {x:xy.x,y:xy.y,u:-speed*Math.sin(rad),v:speed*Math.cos(rad)};
-    }).filter(Boolean);
+    const field={lats:[],lons:[],nodes:new Map(),spacingKm:20};
+    for(const point of windGrid){
+      const hourly=point.hourly;
+      if(!Array.isArray(hourly?.time))continue;
+      let i=hourly.time.indexOf(hour);
+      if(i<0){
+        const ts=dateMs(hour);let min=Infinity;
+        for(let j=0;j<hourly.time.length;j++){
+          const d=Math.abs(dateMs(hourly.time[j])-ts);
+          if(d<min){min=d;i=j}
+        }
+      }
+      const speed=hourly.wind_speed_10m?.[i],dir=hourly.wind_direction_10m?.[i];
+      if(!finite(speed)||!finite(dir))continue;
+      const rad=dir*Math.PI/180;
+      const lat=+point.lat.toFixed(4),lon=+point.lon.toFixed(4);
+      field.nodes.set(lat.toFixed(4)+':'+lon.toFixed(4),{
+        lat,lon,u:-speed*Math.sin(rad),v:speed*Math.cos(rad)
+      });
+      field.lats.push(lat);field.lons.push(lon);
+    }
+    field.lats=[...new Set(field.lats)].sort((a,b)=>a-b);
+    field.lons=[...new Set(field.lons)].sort((a,b)=>a-b);
+    if(field.lats.length>1&&field.lons.length>1){
+      const stepLat=field.lats[1]-field.lats[0],stepLon=field.lons[1]-field.lons[0];
+      const centerLat=field.lats[Math.floor(field.lats.length/2)];
+      field.spacingKm=(kmDistance(centerLat,field.lons[0],centerLat+stepLat,field.lons[0])+
+        kmDistance(centerLat,field.lons[0],centerLat,field.lons[0]+stepLon))/2;
+    }
+    return field;
+  }
+  function windBrackets(values,x){
+    if(!values.length)return null;
+    if(x<=values[0])return [values[0],values[0],0];
+    if(x>=values[values.length-1])return [values[values.length-1],values[values.length-1],0];
+    let lo=0,hi=values.length-1;
+    while(hi-lo>1){
+      const mid=(lo+hi)>>1;
+      if(values[mid]>x)hi=mid;else lo=mid;
+    }
+    return [values[lo],values[hi],(x-values[lo])/(values[hi]-values[lo])];
+  }
+  function windAt(field,lat,lon){
+    const a=windBrackets(field.lats,lat),b=windBrackets(field.lons,lon);
+    if(!a||!b)return null;
+    // Geographic bilinear interpolation of the four model-cell corner vectors.
+    const corners=[
+      [a[0],b[0],(1-a[2])*(1-b[2])],
+      [a[0],b[1],(1-a[2])*b[2]],
+      [a[1],b[0],a[2]*(1-b[2])],
+      [a[1],b[1],a[2]*b[2]]
+    ];
+    let u=0,v=0,weight=0;
+    for(const [y,x,w] of corners){
+      if(w<=1e-9)continue;
+      const node=field.nodes.get(y.toFixed(4)+':'+x.toFixed(4));
+      if(!node)continue;
+      u+=w*node.u;v+=w*node.v;weight+=w;
+    }
+    if(weight<1e-9)return null;
+    const eu=u/weight,ev=v/weight;
+    return {u:eu,v:ev,speed:Math.hypot(eu,ev)};
   }
   function renderWind(){
     const canvas=$('windOverlay'),legend=$('windLegend');
     if(!map||!windEnabled||!windGrid.length){legend.hidden=true;return}
-    const bounds=map.getSize(),width=Math.round(bounds.x),height=Math.round(bounds.y),dpr=Math.min(2,window.devicePixelRatio||1);
+    const size=map.getSize(),width=Math.round(size.x),height=Math.round(size.y);
+    const dpr=Math.min(2,window.devicePixelRatio||1);
     if(width<2||height<2)return;
     canvas.style.width=width+'px';canvas.style.height=height+'px';
     canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
     const ctx=canvas.getContext('2d');if(!ctx)return;
     ctx.scale(dpr,dpr);
-    const nodes=windVectors(windHour());if(!nodes.length){legend.hidden=true;return}
-    function at(x,y){
-      let total=0,u=0,v=0;
-      for(const p of nodes){const dist=(p.x-x)**2+(p.y-y)**2;const w=1/(dist+1800);total+=w;u+=w*p.u;v+=w*p.v;}
-      return {u:u/total,v:v/total,speed:Math.hypot(u/total,v/total)};
+    const field=windVectors(windHour());if(!field.nodes.size){legend.hidden=true;return}
+    const at=(x,y)=>{
+      const coord=map.containerPointToLatLng([x,y]);
+      return windAt(field,coord.lat,coord.lng);
+    };
+    const tile=26;
+    for(let y=0;y<height;y+=tile)for(let x=0;x<width;x+=tile){
+      const vector=at(x+tile/2,y+tile/2);
+      if(!vector)continue;
+      ctx.fillStyle=windColor(vector.speed);
+      ctx.fillRect(x,y,tile+1,tile+1);
     }
-    const step=18;
-    for(let y=0;y<height;y+=step)for(let x=0;x<width;x+=step){
-      ctx.fillStyle=windColor(at(x+step/2,y+step/2).speed);
-      ctx.fillRect(x,y,step+1,step+1);
+    function drawArrow(x,y){
+      const v=at(x,y);if(!v||v.speed<0.2)return;
+      const len=17,dx=v.u/v.speed,dy=v.v/v.speed;
+      const tx=x+dx*len/2,ty=y+dy*len/2;
+      const x0=x-dx*len/2,y0=y-dy*len/2,wing=5.3;
+      const paint=()=>{
+        ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(tx,ty);
+        ctx.moveTo(tx-dx*wing-dy*wing*.65,ty-dy*wing+dx*wing*.65);
+        ctx.lineTo(tx,ty);
+        ctx.lineTo(tx-dx*wing+dy*wing*.65,ty-dy*wing-dx*wing*.65);
+        ctx.stroke();
+      };
+      ctx.strokeStyle='rgba(255,255,255,.86)';ctx.lineWidth=3.7;ctx.lineCap='round';ctx.lineJoin='round';paint();
+      ctx.strokeStyle='rgba(20,54,63,.83)';ctx.lineWidth=1.7;paint();
     }
-    for(let y=43;y<height;y+=76)for(let x=38;x<width;x+=76){
-      const v=at(x,y);if(v.speed<.2)continue;
-      const len=15,dx=v.u/v.speed,dy=v.v/v.speed,tx=x+dx*len/2,ty=y+dy*len/2;
-      const p1x=x-dx*len/2,p1y=y-dy*len/2;
-      const wing=5;
-      const paint=()=>{ctx.beginPath();ctx.moveTo(p1x,p1y);ctx.lineTo(tx,ty);
-        ctx.moveTo(tx-dx*wing-dy*wing*.65,ty-dy*wing+dx*wing*.65);ctx.lineTo(tx,ty);
-        ctx.lineTo(tx-dx*wing+dy*wing*.65,ty-dy*wing-dx*wing*.65);ctx.stroke()};
-      ctx.strokeStyle='rgba(255,255,255,.83)';ctx.lineWidth=3.6;ctx.lineCap='round';ctx.lineJoin='round';paint();
-      ctx.strokeStyle='rgba(20,54,63,.82)';ctx.lineWidth=1.65;paint();
+    const left=map.containerPointToLatLng([0,height/2]);
+    const right=map.containerPointToLatLng([width,height/2]);
+    const widthKm=kmDistance(left.lat,left.lng,right.lat,right.lng);
+    // If viewport is smaller than one model cell, don't draw dozens of
+    // identical arrows pretending to resolve wind at individual river bends.
+    if(widthKm<Math.max(12,field.spacingKm*.65)){
+      drawArrow(width/2,height/2);
+    }else{
+      const separation=widthKm<field.spacingKm*2?118:86;
+      for(let y=separation/2;y<height;y+=separation){
+        for(let x=separation/2;x<width;x+=separation)drawArrow(x,y);
+      }
     }
     $('windLegendTime').textContent='Ветер '+activeWindModel().label+' · '+clock(windHour());
+    const hint=legend.querySelector('small');
+    if(hint)hint.textContent='Шаг сетки ≈'+Math.round(field.spacingKm)+' км'+
+      (widthKm<field.spacingKm?' · у затонов направление обобщённое':'');
     legend.hidden=false;
   }
 

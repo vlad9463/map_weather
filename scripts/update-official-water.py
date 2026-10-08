@@ -100,10 +100,13 @@ def main():
         latest=TODAY
     if (TODAY-latest).days>7:
         errors.append(f'Последний опубликованный бюллетень старый: {latest}')
-    days=8 if len(entries)<8 else 5
-    candidates=[latest-dt.timedelta(days=i) for i in range(days)]
-    candidates=[d for d in candidates if d>dt.date(2020,1,1) and
-                (d.isoformat() not in entries or (latest-d).days<=2)]
+    # Refresh last 3 days (possible corrections), while backfilling older
+    # missing dates in small batches until a 90-day history is available.
+    refresh=[latest-dt.timedelta(days=i) for i in range(3)]
+    missing=[latest-dt.timedelta(days=i) for i in range(90)
+             if (latest-dt.timedelta(days=i)).isoformat() not in entries]
+    candidates=sorted(set(refresh+missing[:20]),reverse=True)
+    candidates=[d for d in candidates if d>dt.date(2020,1,1) and d<=TODAY]
     # Moderate concurrency avoids excessive load on the official service.
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         for observation,error in pool.map(fetch_day,candidates):

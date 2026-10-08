@@ -654,9 +654,7 @@
     return s&&/^\d{4}-\d{2}-\d{2}$/.test(s.date)&&finite(s.value)&&s.value>=15&&s.value<=40;
   }
   function historySource(s){
-    return s?.provenance==='screenshot_transcription'?'считано с графика Бугорка':
-      s?.provenance==='user_screenshot'?'по скриншоту':
-      'автоматически получено из '+(s?.sourceName||'гидрологических данных');
+    return s?.provenance==='automated_source'?'автоматически получено из '+(s?.sourceName||'гидрологических данных'):'нет подтверждённого происхождения';
   }
   function formatDelta(cm){
     if(!finite(cm))return '—';
@@ -667,9 +665,9 @@
     if(!Array.isArray(waterHistory?.observations)){
       el.innerHTML='<div class="water-hint">Не удалось загрузить историю уровня.</div>';note.textContent='';trend.textContent='—';return;
     }
-    const all=waterHistory.observations.filter(historyValid).sort((a,b)=>a.date.localeCompare(b.date));
+    const all=waterHistory.observations.filter(p=>p.provenance==='automated_source'&&historyValid(p)).sort((a,b)=>a.date.localeCompare(b.date));
     if(!all.length){
-      el.innerHTML='<div class="water-hint">История уровня пока пуста.</div>';note.textContent='';trend.textContent='—';return;
+      el.innerHTML='<div class="water-hint">Автоматическая история пока недоступна: источник не ответил. Значения со скриншотов не используются.</div>';note.textContent='График появится после получения реальных датированных наблюдений.';trend.textContent='—';return;
     }
     const maxDate=all[all.length-1].date;
     const end=Date.parse(maxDate+'T00:00:00Z'),limit=end-(levelRange-1)*86400000;
@@ -681,7 +679,7 @@
     trend.textContent=last.value.toFixed(2).replace('.',',')+' м БС'+
       (delta!==null?' · '+formatDelta(delta)+' за сутки':'');
     note.textContent='Данные: '+points.length+' дней · последний замер '+hydrologyDate(last.date)+
-      '. Первые точки перенесены с предоставленного графика. Пропуски не заполняются.';
+      '. Только автоматически полученные значения. Пропуски не заполняются.';
     document.querySelectorAll('[data-level-range]').forEach(b=>b.classList.toggle('active',Number(b.dataset.levelRange)===levelRange));
     if(points.length===1){
       el.innerHTML='<div class="water-hint">'+hydrologyDate(last.date)+': '+round(last.value,2)+' м БС</div>';return;
@@ -713,7 +711,7 @@
     parts.push('<path d="'+trace+'" stroke="#2a9078" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>');
     for(let i=0;i<points.length;i++){
       const p=points[i],x=xFor(p.date).toFixed(2),y=yFor(p.value).toFixed(2);
-      parts.push('<circle data-history-index="'+i+'" cx="'+x+'" cy="'+y+'" r="'+(i===points.length-1?5:3.5)+'" fill="'+(p.provenance==='screenshot_transcription'?'#fff':'#2a9078')+'" stroke="#2a9078" stroke-width="2" tabindex="0" role="button" aria-label="'+
+      parts.push('<circle data-history-index="'+i+'" cx="'+x+'" cy="'+y+'" r="'+(i===points.length-1?5:3.5)+'" fill="#2a9078" stroke="#2a9078" stroke-width="2" tabindex="0" role="button" aria-label="'+
         hydrologyDate(p.date)+': '+round(p.value,2)+' м БС. '+historySource(p)+'"><title>'+
         hydrologyDate(p.date)+' · '+round(p.value,2)+' м БС</title></circle>');
     }

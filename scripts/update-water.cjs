@@ -79,9 +79,10 @@ async function main(){
  // Candidate order gives native mBS values preference on equal dates.
  candidates.sort((a,b)=>b.observedOn.localeCompare(a.observedOn));
  const freshest=candidates[0];
- if(freshest)result.level=freshest;
- if(old.level&&Number.isFinite(old.level.value)&&(!result.level||old.level.observedOn>result.level.observedOn)){
-  result.level={...old.level};
+ if(freshest)result.level={...freshest,provenance:'automated_source'};
+ // Never recycle values transcribed from screenshots/manual entry as automatic readings.
+ if(old.level&&old.level.provenance==='automated_source'&&Number.isFinite(old.level.value)&&(!result.level||old.level.observedOn>result.level.observedOn)){
+  result.level={...old.level,status:'stale',warning:'Повторно использовано автоматически полученное старое измерение'};
  }
  if(!result.level)result.errors.level=failures.join('; ')||'Источники не вернули данных';
  // Maintain a growing chronological time-series. Only genuine newly retrieved
@@ -90,7 +91,8 @@ async function main(){
  let history={station:'Волга у Самары',unit:'м БС',observations:[]};
  try{history=JSON.parse(fs.readFileSync(historyFile,'utf8'))}catch{}
  if(!Array.isArray(history.observations))history.observations=[];
- const observations=new Map(history.observations.filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Number.isFinite(r.value)).map(r=>[r.date,r]));
+ // Keep only measurements retrieved automatically from traceable sources.
+ const observations=new Map(history.observations.filter(r=>r.provenance==='automated_source'&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Number.isFinite(r.value)&&r.sourceUrl).map(r=>[r.date,r]));
  for(const v of candidates){
    if(!/^\d{4}-\d{2}-\d{2}$/.test(v.observedOn)||!Number.isFinite(v.value)||v.unit!=='м БС')continue;
    observations.set(v.observedOn,{date:v.observedOn,value:v.value,sourceName:v.sourceName,sourceUrl:v.sourceUrl,provenance:'automated_source',retrievedAt:now});
@@ -101,7 +103,7 @@ async function main(){
  try{result.temperature={...temperature(await download(URL_TEMP),+today.slice(0,4)),retrievedAt:now}}
  catch(e){result.errors.temperature=String(e.message)}
  for(const field of ['level','temperature']){
-  if(!result[field]&&old[field]&&Number.isFinite(old[field].value))result[field]={...old[field],status:'stale',warning:'Источник не ответил'};
+  if(!result[field]&&old[field]&&Number.isFinite(old[field].value)&&field!=='level')result[field]={...old[field],status:'stale',warning:'Источник не ответил'};
   if(result[field])result[field]=freshness(result[field],today);
  }
  fs.mkdirSync(path.dirname(FILE),{recursive:true});fs.writeFileSync(FILE,JSON.stringify(result,null,2)+'\n');

@@ -1,17 +1,7 @@
 {
   "station": "Волга у Самары / Самарская область",
   "updatedAt": "2026-10-08T13:29:17.540Z",
-  "level": {
-    "value": 28.63,
-    "unit": "м БС",
-    "observedOn": "2026-10-08",
-    "kind": "hydropost",
-    "sourceName": "СНТ «Бугорок» · уровень с предоставленного скриншота",
-    "sourceUrl": "https://www.snt-bugorok.ru/level/uroven-v-saratovskom-vodokhranilishche-u-samary-segodnya",
-    "status": "ok",
-    "provenance": "user_screenshot",
-    "warning": "Источник не ответил"
-  },
+  "level": null,
   "temperature": {
     "value": 8.1,
     "unit": "°C",
@@ -22,5 +12,7 @@
     "retrievedAt": "2026-10-08T13:29:17.540Z",
     "status": "ok"
   },
-  "errors": {}
+  "errors": {
+    "level": "Нет автоматически полученного значения уровня Волги у Самары; сайт-источник ограничивает доступ."
+  }
 }

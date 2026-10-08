@@ -90,14 +90,14 @@ async function main(){
  let history={station:'Волга у Самары',unit:'м БС',observations:[]};
  try{history=JSON.parse(fs.readFileSync(historyFile,'utf8'))}catch{}
  if(!Array.isArray(history.observations))history.observations=[];
- const observations=new Map(history.observations.filter(r=>/^\\d{4}-\\d{2}-\\d{2}$/.test(r.date)&&Number.isFinite(r.value)).map(r=>[r.date,r]));
+ const observations=new Map(history.observations.filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Number.isFinite(r.value)).map(r=>[r.date,r]));
  for(const v of candidates){
-   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(v.observedOn)||!Number.isFinite(v.value)||v.unit!=='м БС')continue;
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(v.observedOn)||!Number.isFinite(v.value)||v.unit!=='м БС')continue;
    observations.set(v.observedOn,{date:v.observedOn,value:v.value,sourceName:v.sourceName,sourceUrl:v.sourceUrl,provenance:'automated_source',retrievedAt:now});
  }
  history.observations=[...observations.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-365);
  fs.mkdirSync(path.dirname(historyFile),{recursive:true});
- fs.writeFileSync(historyFile,JSON.stringify(history,null,2)+'\\n');
+ fs.writeFileSync(historyFile,JSON.stringify(history,null,2)+'\n');
  try{result.temperature={...temperature(await download(URL_TEMP),+today.slice(0,4)),retrievedAt:now}}
  catch(e){result.errors.temperature=String(e.message)}
  for(const field of ['level','temperature']){

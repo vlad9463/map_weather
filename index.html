@@ -113,12 +113,12 @@
   let selected={...DEFAULT,id:null,name:'Самара · примерная точка'};
   let map,baseMap,satMap,selectedMarker,spotMarkers,forecast={},hours=[],hourIndex=0,chartMetric='wind_speed_10m',loadSeq=0;
   let windEnabled=prefs.windEnabled!==false,windGrid=[],windController=null,windSeq=0,windTimer=0,windSignature='',windFetchedAt=0;
-  let mapTileFailures=0,satTileFailures=0;
+  let mapTileFailures=0,satTileFailures=0,windLoadError=false;
   const cache=new Map();
   const MAP_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> · <a href="https://www.openstreetmap.fr/usage/" target="_blank">OSM France</a>';
   const SAT_ATTR='Imagery &copy; Esri, Vantor, Earthstar Geographics, GIS User Community';
   // A failed image can otherwise leave large empty squares. Try a second legal tile host.
-  const ResilientTileLayer=L.TileLayer.extend({
+  const ResilientTileLayer=typeof L!=='undefined'?L.TileLayer.extend({
     createTile:function(coords,done){
       const tile=document.createElement('img');tile.alt='';tile.setAttribute('role','presentation');
       const z=this._getZoomForUrl(),x=coords.x,y=coords.y;
@@ -136,7 +136,7 @@
       };
       next();return tile;
     }
-  });
+  }):null;
   function updateTileAlert(){
     const el=$('tileAlert');
     if(mapTileFailures>2){el.textContent='Часть карты недоступна даже через резервный сервер. Проверь VPN/блокировщик или повтори позже.';el.hidden=false}
@@ -192,7 +192,7 @@
   function updateWindButton(){
     const b=$('windControl');b.classList.toggle('active',windEnabled);
     b.setAttribute('aria-pressed',String(windEnabled));
-    b.textContent=windEnabled?'↗ Ветер: вкл':'↗ Ветер: выкл';
+    b.textContent=!windEnabled?'↗ Ветер: выкл':windLoadError?'↗ Ветер: ошибка':'↗ Ветер: вкл';
     $('windOverlay').classList.toggle('on',windEnabled);
     $('windLegend').hidden=!windEnabled||!windGrid.length;
   }
@@ -234,14 +234,14 @@
       const grid=points.map((p,i)=>({...p,hourly:list[i]?.hourly}));
       if(grid.every(p=>!Array.isArray(p.hourly?.time)))throw Error('Нет данных ветра');
       if(seq!==windSeq||!windEnabled)return;
-      windGrid=grid;windSignature=sig;windFetchedAt=Date.now();
+      windGrid=grid;windSignature=sig;windFetchedAt=Date.now();windLoadError=false;updateWindButton();
       $('windControl').title='Прогноз ветра ECMWF · цвет скорость, стрелки направление';
       renderWind();
     }catch(err){
       if(seq!==windSeq||err?.name==='AbortError')return;
       $('windControl').title='Не удалось получить поле ветра: '+String(err?.message||err)+'. Нажми для повтора.';
       // Не закрашиваем карту выдуманными значениями при ошибке загрузки.
-      windGrid=[];renderWind();$('windLegend').hidden=true;
+      windGrid=[];windLoadError=true;updateWindButton();renderWind();$('windLegend').hidden=true;
     }
   }
   function windVectors(hour){

@@ -24,8 +24,8 @@ TODAY=dt.datetime.now(TZ).date()
 NOW=dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00','Z')
 
 def request(url):
-    req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 (compatible; RybTochki/1.0)','Accept':'*/*'})
-    with urllib.request.urlopen(req,timeout=22) as resp:
+    req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 (RybTochki/1.0)','Accept':'*/*'})
+    with urllib.request.urlopen(req,timeout=15) as resp:
         if resp.status!=200:raise ValueError('HTTP '+str(resp.status))
         return resp.read(3_000_000)
 
@@ -100,12 +100,12 @@ def main():
         latest=TODAY
     if (TODAY-latest).days>7:
         errors.append(f'Последний опубликованный бюллетень старый: {latest}')
-    days=31 if len(entries)<8 else 8
+    days=8 if len(entries)<8 else 5
     candidates=[latest-dt.timedelta(days=i) for i in range(days)]
     candidates=[d for d in candidates if d>dt.date(2020,1,1) and
                 (d.isoformat() not in entries or (latest-d).days<=2)]
     # Moderate concurrency avoids excessive load on the official service.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         for observation,error in pool.map(fetch_day,candidates):
             if observation:
                 entries[observation['date']]=observation

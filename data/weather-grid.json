@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "generatedAt": null,
+  "region": "Волга, Самара, Сок — район Самары",
+  "bounds": {
+    "south": 52.4,
+    "north": 54.2,
+    "west": 48.7,
+    "east": 52.3
+  },
+  "points": [],
+  "stats": {},
+  "status": "awaiting_first_fetch"
+}

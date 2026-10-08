@@ -1,0 +1,35 @@
+name: Update regional forecast cache
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/update-weather.yml
+      - scripts/update-weather.cjs
+permissions:
+  contents: write
+concurrency:
+  group: rybtochki-weather-cache
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download model forecasts for Samara region
+        run: node scripts/update-weather.cjs
+      - name: Publish weather cache to GitHub Pages
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/weather-grid.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Refresh regional ECMWF GFS ICON forecasts [skip ci]'
+            git pull --rebase
+            git push
+          fi

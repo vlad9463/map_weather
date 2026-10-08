@@ -1,0 +1,62 @@
+'use strict';
+const fs=require('node:fs');
+const path=require('node:path');
+const FILE=path.join(__dirname,'../data/volga-samara.json');
+const URL_LEVEL='https://www.snt-bugorok.ru/category/01-urovni-vody-v-volge/';
+const URL_BACKUP='https://www.snt-bugorok.ru/category/bo-11/';
+const URL_TEMP='https://rusoir.com/forecast/water-temperature/samarskoj-oblasti';
+const MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const text=s=>String(s).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&(?:nbsp|#160|#xA0);/gi,' ').replace(/\s+/g,' ').trim();
+const rows=s=>[...s.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(m=>text(m[1])).concat(text(s));
+function date(d,m,y){const mm=MONTHS.indexOf(m.toLowerCase()),dt=new Date(Date.UTC(+y,mm,+d));return mm>=0&&dt.getUTCMonth()===mm&&dt.getUTCDate()===+d?dt.toISOString().slice(0,10):null}
+function samaraToday(){return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Samara',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
+function level(html){
+ for(const s of rows(html)){
+  const m=s.match(/(?:^|\s)Самара\s+(2\d[.,]\d{1,3})\s+[+−-]?\d+[.,]?\d*\s+(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(20\d{2})(?=\s|$)/i);
+  if(m){const v=+m[1].replace(',','.'),d=date(m[2],m[3],m[4]);if(v>=20&&v<=40&&d)return{value:v,unit:'м БС',observedOn:d,kind:'hydropost',sourceName:'СНТ Бугорок (гидропост Самара)',sourceUrl:URL_LEVEL}}
+ }
+ throw Error('Значение Самары в м БС не найдено');
+}
+function backup(html,today){
+ for(const s of rows(html)){
+  const m=s.match(/(?:^|\s)Самара\s+Волга\s+(\d{2,4})\s+[+−-]?\d+\s+(сегодня|\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+20\d{2})(?=\s|$)/i);
+  if(m){const v=+m[1],parts=m[2].match(/(\d{1,2})\s+(\S+)\s+(20\d{2})/),d=parts?date(parts[1],parts[2],parts[3]):today;if(v<=2000&&d)return{value:v,unit:'см над нулём поста',observedOn:d,kind:'gauge_relative',sourceName:'СНТ Бугорок (гидропост)',sourceUrl:URL_BACKUP}}
+ }
+ throw Error('Резервная строка Самары не найдена');
+}
+function temperature(html,year){
+ const m=text(html).match(/Сегодня,?\s+(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{1,2}(?:[.,]\d+)?)\s*°\s*C/i);
+ if(!m)throw Error('Региональная оценка температуры не найдена');
+ const v=+m[3].replace(',','.'),d=date(m[1],m[2],year);
+ if(v>35||!d)throw Error('Некорректная температура или дата');
+ return{value:v,unit:'°C',observedOn:d,kind:'regional_forecast',sourceName:'Русоир (расчёт по Самарской области)',sourceUrl:URL_TEMP};
+}
+async function download(url){
+ const response=await fetch(url,{headers:{'User-Agent':'RybTochki/1.0 (non-commercial personal project)','Accept':'text/html'},signal:AbortSignal.timeout(20000)});
+ if(!response.ok)throw Error('HTTP '+response.status);
+ const html=await response.text();
+ if(html.length<350||/access denied|request has been denied|captcha/i.test(html.slice(0,4000)))throw Error('Доступ источником ограничен');
+ return html;
+}
+function freshness(r,today){
+ if(!r||!Number.isFinite(r.value))return r;
+ const days=r.observedOn?Math.round((Date.parse(today+'T00:00:00Z')-Date.parse(r.observedOn+'T00:00:00Z'))/86400000):999;
+ return{...r,status:days>=0&&days<=2?'ok':'stale'};
+}
+async function main(){
+ const now=new Date().toISOString(),today=samaraToday();
+ let old={};try{old=JSON.parse(fs.readFileSync(FILE,'utf8'))}catch{}
+ const result={station:'Волга у Самары / Самарская область',updatedAt:now,level:null,temperature:null,errors:{}};
+ try{result.level={...level(await download(URL_LEVEL)),retrievedAt:now}}
+ catch(e){result.errors.level=String(e.message);try{result.level={...backup(await download(URL_BACKUP),today),retrievedAt:now}}catch(err){result.errors.level+='; резерв: '+String(err.message)}}
+ try{result.temperature={...temperature(await download(URL_TEMP),+today.slice(0,4)),retrievedAt:now}}
+ catch(e){result.errors.temperature=String(e.message)}
+ for(const field of ['level','temperature']){
+  if(!result[field]&&old[field]&&Number.isFinite(old[field].value))result[field]={...old[field],status:'stale',warning:'Источник не ответил'};
+  if(result[field])result[field]=freshness(result[field],today);
+ }
+ fs.mkdirSync(path.dirname(FILE),{recursive:true});fs.writeFileSync(FILE,JSON.stringify(result,null,2)+'\n');
+ console.log(JSON.stringify({level:result.level,temperature:result.temperature,errors:result.errors},null,2));
+}
+if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1});
+module.exports={level,backup,temperature,freshness};

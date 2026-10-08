@@ -1,6 +1,6 @@
 {
   "station": "Волга у Самары / Самарская область",
-  "updatedAt": "2026-10-08T13:17:18.148Z",
+  "updatedAt": "2026-10-08T13:18:07.227Z",
   "level": {
     "value": 28.63,
     "unit": "м БС",
@@ -19,10 +19,8 @@
     "kind": "regional_forecast",
     "sourceName": "Русоир (расчёт по Самарской области)",
     "sourceUrl": "https://rusoir.com/forecast/water-temperature/samarskoj-oblasti",
-    "retrievedAt": "2026-10-08T13:17:18.148Z",
+    "retrievedAt": "2026-10-08T13:18:07.227Z",
     "status": "ok"
   },
-  "errors": {
-    "level": "Бугорок (м БС): Доступ источником ограничен; Бугорок (см): Доступ источником ограничен; РИС: РИС не отдал текущую строку гидропоста Самара"
-  }
+  "errors": {}
 }

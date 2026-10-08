@@ -130,6 +130,20 @@
     .water-manual{display:flex;justify-content:space-between;align-items:center;gap:8px;
       padding-top:11px;margin-top:12px;border-top:1px solid #dfece2;font-size:11px;color:#527065}
     .water-manual span{text-align:right;font-size:10px;color:#6d877d}
+
+    .level-history{margin:8px 0 15px;border:1px solid #e0eae3;background:#fff;border-radius:13px;padding:12px}
+    .level-history-heading{display:flex;justify-content:space-between;align-items:center;gap:7px;flex-wrap:wrap}
+    .level-history-heading strong{font-size:12px;color:#365e52}
+    #levelTrend{font-size:11px;color:#276e58;font-weight:680}
+    .level-ranges{display:flex;gap:5px;margin:10px 0 8px}
+    .level-ranges button{flex:1;border:1px solid #e0e9e2;border-radius:8px;background:#f3f7f3;color:#53766a;font-size:10px;padding:6px 2px;cursor:pointer}
+    .level-ranges button.active{background:#296956;border-color:#296956;color:white}
+    .level-history-chart svg{display:block;width:100%;height:auto;min-height:140px}
+    .level-history-chart circle{cursor:pointer;outline-offset:2px}
+    .level-history-note{font-size:10px;color:#71877b;line-height:1.5}
+    .level-selected-day{font-size:11px;color:#2a6757;margin-top:8px;font-weight:650}
+    .water-hint{padding:22px 8px;font-size:12px;color:#769186;text-align:center}
+
   </style>
 </head>
 <body>
@@ -166,6 +180,20 @@
             <div class="water-live-grid">
               <div class="water-live-cell"><span>Уровень · Самара</span><strong id="autoWaterLevel">—</strong><small id="autoLevelInfo">Ожидание данных</small></div>
               <div class="water-live-cell"><span>t° воды · Самарская область</span><strong id="autoWaterTemp">—</strong><small id="autoTempInfo">Региональный прогноз, не замер Волги</small></div>
+            </div>
+<div class="level-history">
+              <div class="level-history-heading"><strong>Как меняется уровень Волги</strong><span id="levelTrend">—</span></div>
+              <div class="level-ranges" role="group" aria-label="Период изменения уровня">
+                <button type="button" data-level-range="7">7 дней</button>
+                <button type="button" data-level-range="15" class="active">15 дней</button>
+                <button type="button" data-level-range="30">30 дней</button>
+                <button type="button" data-level-range="90">90 дней</button>
+              </div>
+              <div id="levelHistoryChart" class="level-history-chart" role="img" aria-label="История уровня воды по датам">
+                <div class="water-hint">Загружаю историю уровня…</div>
+              </div>
+              <div id="levelHistoryNote" class="level-history-note"></div>
+              <div id="levelSelectedDay" class="level-selected-day" aria-live="polite"></div>
             </div>
             <div class="water-meta"><span id="autoWaterMeta">Загружаю сводку…</span><button type="button" id="refreshWater" title="Заново получить файл сводки">Обновить</button></div>
             <p>Уровень — гидропост Волги у Самары, температура — <b>ориентировочный региональный прогноз</b> (не измерение в затоне). Данные обновляются на GitHub по расписанию, если источники доступны. Смотри дату рядом с каждым значением.</p>
@@ -619,6 +647,102 @@
     let date=h.slice(0,10),d=MODELS.map(m=>forecast[m.id]?.daily).find(d=>Array.isArray(d?.time));const di=d?.time?.indexOf(date)??-1;
     $('sunRow').innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 16h18M6 19h12M5 13a7 7 0 0 1 14 0M12 2v3m-7 1L3 4m16 2 2-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Восход <b>${di>=0?clock(d.sunrise?.[di]):'—'}</b></span><span class="dot">·</span><span>Закат <b>${di>=0?clock(d.sunset?.[di]):'—'}</b></span>`;
   }
+
+
+  let waterHistory=null,levelRange=15;
+  function historyValid(s){
+    return s&&/^\d{4}-\d{2}-\d{2}$/.test(s.date)&&finite(s.value)&&s.value>=15&&s.value<=40;
+  }
+  function historySource(s){
+    return s?.provenance==='screenshot_transcription'?'считано с графика Бугорка':
+      s?.provenance==='user_screenshot'?'по скриншоту':
+      'автоматически получено из '+(s?.sourceName||'гидрологических данных');
+  }
+  function formatDelta(cm){
+    if(!finite(cm))return '—';
+    return (cm>0?'+':cm<0?'−':'')+Math.abs(cm).toFixed(0)+' см';
+  }
+  function renderHistory(){
+    const el=$('levelHistoryChart'),note=$('levelHistoryNote'),trend=$('levelTrend');
+    if(!Array.isArray(waterHistory?.observations)){
+      el.innerHTML='<div class="water-hint">Не удалось загрузить историю уровня.</div>';note.textContent='';trend.textContent='—';return;
+    }
+    const all=waterHistory.observations.filter(historyValid).sort((a,b)=>a.date.localeCompare(b.date));
+    if(!all.length){
+      el.innerHTML='<div class="water-hint">История уровня пока пуста.</div>';note.textContent='';trend.textContent='—';return;
+    }
+    const maxDate=all[all.length-1].date;
+    const end=Date.parse(maxDate+'T00:00:00Z'),limit=end-(levelRange-1)*86400000;
+    const points=all.filter(p=>Date.parse(p.date+'T00:00:00Z')>=limit);
+    if(!points.length)return;
+    const last=points[points.length-1],prev=points.length>1?points[points.length-2]:null;
+    const delta=prev&&Math.round((Date.parse(last.date+'T00:00:00Z')-Date.parse(prev.date+'T00:00:00Z'))/86400000)===1?
+      Math.round((last.value-prev.value)*100):null;
+    trend.textContent=last.value.toFixed(2).replace('.',',')+' м БС'+
+      (delta!==null?' · '+formatDelta(delta)+' за сутки':'');
+    note.textContent='Данные: '+points.length+' дней · последний замер '+hydrologyDate(last.date)+
+      '. Первые точки перенесены с предоставленного графика. Пропуски не заполняются.';
+    document.querySelectorAll('[data-level-range]').forEach(b=>b.classList.toggle('active',Number(b.dataset.levelRange)===levelRange));
+    if(points.length===1){
+      el.innerHTML='<div class="water-hint">'+hydrologyDate(last.date)+': '+round(last.value,2)+' м БС</div>';return;
+    }
+    const W=344,H=184,L=40,R=14,T=16,B=30;
+    const minVal=Math.min(...points.map(p=>p.value)),maxVal=Math.max(...points.map(p=>p.value));
+    const pad=Math.max(.035,(maxVal-minVal)*.19);
+    const minY=minVal-pad,maxY=maxVal+pad;
+    const xFor=d=>L+(Date.parse(d+'T00:00:00Z')-limit)/Math.max(86400000,(end-limit))*(W-L-R);
+    const yFor=v=>T+(maxY-v)/(maxY-minY)*(H-T-B);
+    let parts=[];
+    for(let i=0;i<=3;i++){
+      const v=minY+(maxY-minY)*i/3,y=yFor(v);
+      parts.push('<line x1="'+L+'" y1="'+y.toFixed(1)+'" x2="'+(W-R)+'" y2="'+y.toFixed(1)+'" stroke="#e2eae5" stroke-width="1"/>');
+      parts.push('<text x="'+(L-6)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" fill="#71887c" font-size="10">'+v.toFixed(2)+'</text>');
+    }
+    for(let i=0;i<points.length;i++){
+      if(i!==0&&i!==points.length-1&&i%Math.max(1,Math.ceil(points.length/4))!==0)continue;
+      const x=xFor(points[i].date);
+      parts.push('<text x="'+x.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" fill="#71887c" font-size="10">'+
+        points[i].date.slice(8)+'/'+points[i].date.slice(5,7)+'</text>');
+    }
+    let trace='',was=null;
+    for(const p of points){
+      const x=xFor(p.date).toFixed(2),y=yFor(p.value).toFixed(2);
+      const interval=was?Math.round((Date.parse(p.date+'T00:00:00Z')-Date.parse(was+'T00:00:00Z'))/86400000):999;
+      trace+=(interval===1?'L':'M')+x+' '+y+' ';was=p.date;
+    }
+    parts.push('<path d="'+trace+'" stroke="#2a9078" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>');
+    for(let i=0;i<points.length;i++){
+      const p=points[i],x=xFor(p.date).toFixed(2),y=yFor(p.value).toFixed(2);
+      parts.push('<circle data-history-index="'+i+'" cx="'+x+'" cy="'+y+'" r="'+(i===points.length-1?5:3.5)+'" fill="'+(p.provenance==='screenshot_transcription'?'#fff':'#2a9078')+'" stroke="#2a9078" stroke-width="2" tabindex="0" role="button" aria-label="'+
+        hydrologyDate(p.date)+': '+round(p.value,2)+' м БС. '+historySource(p)+'"><title>'+
+        hydrologyDate(p.date)+' · '+round(p.value,2)+' м БС</title></circle>');
+    }
+    const svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-label="Уровень воды за '+levelRange+' дней, метры Балтийской системы">'+parts.join('')+'</svg>';
+    el.innerHTML=svg;
+    const show=i=>{
+      const p=points[i];if(!p)return;
+      $('levelSelectedDay').textContent=hydrologyDate(p.date)+' · '+round(p.value,2)+' м БС · '+historySource(p);
+    };
+    el.querySelectorAll('[data-history-index]').forEach(node=>{
+      node.onclick=()=>show(Number(node.dataset.historyIndex));
+      node.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();node.click()}};
+    });
+    show(points.length-1);
+  }
+  document.querySelectorAll('[data-level-range]').forEach(b=>b.onclick=()=>{levelRange=Number(b.dataset.levelRange);renderHistory()});
+  async function fetchLevelHistory(){
+    try{
+      const url='./data/volga-level-history.json?v='+Math.floor(Date.now()/300000);
+      const response=await fetch(url,{cache:'no-store'});
+      if(!response.ok)throw Error('HTTP '+response.status);
+      const json=await response.json();
+      if(!Array.isArray(json?.observations))throw Error('Неверный формат');
+      waterHistory=json;renderHistory();
+    }catch(error){
+      $('levelHistoryChart').innerHTML='<div class="water-hint">График пока недоступен: '+esc(error.message||error)+'</div>';
+    }
+  }
+  fetchLevelHistory();
 
   function renderWaterRecord(){
     const r=waterRecord&&typeof waterRecord==='object'?waterRecord:{};

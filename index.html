@@ -466,6 +466,18 @@
     const eu=u/weight,ev=v/weight;
     return {u:eu,v:ev,speed:Math.hypot(eu,ev)};
   }
+  function windArrowPositions(width,height){
+    if(width<=0||height<=0)return[];
+    // Roughly 80–105 screen pixels apart, regardless of map zoom.
+    const spacing=Math.max(80,Math.min(105,Math.round(Math.min(width,height)/4)));
+    const cols=Math.max(2,Math.round(width/spacing));
+    const rows=Math.max(2,Math.round(height/spacing));
+    const points=[];
+    for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
+      points.push([(col+.5)*width/cols,(row+.5)*height/rows]);
+    }
+    return points;
+  }
   function renderWind(){
     const canvas=$('windOverlay'),legend=$('windLegend');
     if(!map||!windEnabled||!windGrid.length){legend.hidden=true;return}
@@ -481,15 +493,23 @@
       const coord=map.containerPointToLatLng([x,y]);
       return windAt(field,coord.lat,coord.lng);
     };
-    const tile=26;
+    const tile=20;
     for(let y=0;y<height;y+=tile)for(let x=0;x<width;x+=tile){
       const vector=at(x+tile/2,y+tile/2);
       if(!vector)continue;
       ctx.fillStyle=windColor(vector.speed);
-      ctx.fillRect(x,y,tile+1,tile+1);
+      // No overlap: semi-transparent overlapping squares drew a visible grid.
+      ctx.fillRect(x,y,tile,tile);
     }
     function drawArrow(x,y){
-      const v=at(x,y);if(!v||v.speed<0.2)return;
+      const v=at(x,y);if(!v)return;
+      if(v.speed<0.2){
+        // At essentially calm conditions direction is not meaningful.
+        ctx.beginPath();ctx.arc(x,y,3.6,0,2*Math.PI);
+        ctx.fillStyle='rgba(255,255,255,.88)';ctx.fill();
+        ctx.strokeStyle='rgba(20,54,63,.83)';ctx.lineWidth=1.6;ctx.stroke();
+        return;
+      }
       const len=17,dx=v.u/v.speed,dy=v.v/v.speed;
       const tx=x+dx*len/2,ty=y+dy*len/2;
       const x0=x-dx*len/2,y0=y-dy*len/2,wing=5.3;
@@ -506,16 +526,10 @@
     const left=map.containerPointToLatLng([0,height/2]);
     const right=map.containerPointToLatLng([width,height/2]);
     const widthKm=kmDistance(left.lat,left.lng,right.lat,right.lng);
-    // If viewport is smaller than one model cell, don't draw dozens of
-    // identical arrows pretending to resolve wind at individual river bends.
-    if(widthKm<Math.max(12,field.spacingKm*.65)){
-      drawArrow(width/2,height/2);
-    }else{
-      const separation=widthKm<field.spacingKm*2?118:86;
-      for(let y=separation/2;y<height;y+=separation){
-        for(let x=separation/2;x<width;x+=separation)drawArrow(x,y);
-      }
-    }
+    // Keep enough arrows visible at every zoom (including river and backwater
+    // closeups). Each arrow uses the locally interpolated real model vector;
+    // on closeups neighboring arrows may genuinely share the same direction.
+    for(const [x,y] of windArrowPositions(width,height))drawArrow(x,y);
     $('windLegendTime').textContent='Ветер '+activeWindModel().label+' · '+clock(windHour());
     const hint=legend.querySelector('small');
     if(hint)hint.textContent='Шаг сетки ≈'+Math.round(field.spacingKm)+' км'+

@@ -14,6 +14,9 @@
   <link rel="stylesheet" href="./leaflet.css">
   <title>РыбТочки — погода по делу</title>
   <style>
+    /* Respect the native hidden attribute even on display:flex components. */
+    [hidden]{display:none!important}
+
     :root{--ink:#233337;--muted:#7b898a;--card:#fbfcf9;--line:#e6ebe7;--accent:#df7457;--accent-dark:#b9583d;--mint:#e3f2eb;--teal:#218d79;--blue:#5680c7;--shadow:0 12px 50px rgba(26,49,48,.17)}
     *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0}body{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;color:var(--ink);background:#e3eae6;-webkit-font-smoothing:antialiased}button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:focus-visible,input:focus-visible{outline:3px solid #e8a58e;outline-offset:2px}#map{position:fixed;inset:0;z-index:1}.leaflet-control-attribution{font-size:9px!important;background:rgba(255,255,255,.80)!important;max-width:calc(100vw - 30px);white-space:normal!important;line-height:1.22!important;padding:2px 5px!important}.leaflet-top.leaflet-right{top:133px;right:10px}.leaflet-control-zoom{display:none}
     .topbar{position:fixed;z-index:500;top:calc(env(safe-area-inset-top,0px) + 13px);left:14px;right:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:none}.brand,.top-actions{pointer-events:auto}.brand{display:flex;align-items:center;gap:10px;padding:9px 12px 9px 10px;background:rgba(251,252,249,.97);border:1px solid rgba(240,244,241,.9);border-radius:17px;box-shadow:0 5px 22px #1739331d;max-width:65%}.brand-icon{display:grid;place-items:center;width:33px;height:33px;border-radius:11px;background:#e7eee9;color:#287b6e}.brand-name{font-size:16px;font-weight:760;letter-spacing:-.55px}.brand-sub{color:var(--muted);font-size:10px;line-height:1.3;letter-spacing:.02em;white-space:nowrap}.top-actions{display:flex;gap:7px}.round{height:46px;min-width:46px;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:rgba(251,252,249,.98);border:1px solid #e8eeea;border-radius:15px;color:#3f5954;box-shadow:0 5px 20px #1739331a}.round:active{transform:scale(.97)}.count{font-size:12px;font-weight:750}.layer-switch{position:fixed;z-index:450;top:calc(env(safe-area-inset-top,0px) + 82px);right:14px;display:flex;gap:2px;padding:4px;background:#fff;border:1px solid #ecf0ec;border-radius:13px;box-shadow:0 4px 24px #142e2919}.layer-switch button{border:0;background:transparent;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:680;color:#72827e}.layer-switch button.active{background:#e7f2eb;color:#225b50}.locate{position:fixed;z-index:450;right:15px;bottom:calc(env(safe-area-inset-bottom,0px) + 410px);height:44px;width:44px;background:#fff;border:1px solid #e6ebe7;border-radius:14px;box-shadow:0 5px 20px #16302924;display:grid;place-items:center;color:#355952}
@@ -44,6 +47,34 @@
     @media(min-width:760px){.wind-control{top:77px;right:90px}
       .wind-legend{bottom:25px;right:85px}
       .tile-alert{top:75px;left:50%;transform:translateX(-50%)}}
+
+    /* Three sheet positions: minimized, normal, extended. */
+    .sheet.collapsed{height:61px;max-height:none;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+      border-radius:17px;padding-bottom:0}
+    .sheet.collapsed .sheet-handle,.sheet.collapsed .sheet-scroll,.sheet.collapsed .eyebrow,.sheet.collapsed .coord,
+    .sheet.collapsed #saveButton,.sheet.collapsed #refreshButton{display:none!important}
+    .sheet.collapsed .sheet-head{padding:11px 12px 10px 17px;min-height:61px}
+    .sheet.collapsed .sheet-name{font-size:15px}
+    .sheet-head .collapse-btn{font-size:12px;padding:9px 11px;min-width:39px;justify-content:center}
+    .sheet.collapsed .collapse-btn{background:#e6f1ea;border-color:#d3e5da;color:#225d4b}
+    .sheet.collapsed.expanded{height:61px}
+    body:has(.sheet.collapsed) .locate{bottom:calc(env(safe-area-inset-bottom,0px) + 92px)}
+    .model-row{border:0;width:100%;text-align:left;cursor:pointer;color:var(--ink);font-family:inherit;appearance:none}
+    .model-row:focus-visible{outline:2px solid #3b8a6c;outline-offset:-2px}
+    .model-row.selected{background:#e3f1eb;box-shadow:inset 4px 0 #2a876b}
+    .model-row.selected .model-label{color:#1b604d}
+    .model-head,.model-row{grid-template-columns:1.25fr 1.12fr .83fr .87fr}
+    .model-row .model-label{white-space:nowrap}
+    .model-row .gust-note{font-size:10px;color:#6c8680}
+    .model-row.selected .gust-note{color:#3d7768}
+    .model-help{font-size:11px;color:#638175;margin:-8px 0 12px}
+    .wind-legend small{display:block;font-size:10px;margin-top:3px;color:#62766f}
+    @media(min-width:760px){
+      .sheet.collapsed{left:22px;right:auto;bottom:20px;width:285px;height:60px}
+      .sheet.collapsed.expanded{height:60px}
+      .sheet.collapsed .sheet-head{padding:10px 10px 10px 14px}
+      body:has(.sheet.collapsed) .locate{bottom:25px}
+    }
   </style>
 </head>
 <body>
@@ -62,8 +93,8 @@
   <div class="layer-switch" role="group" aria-label="Вид карты"><button type="button" class="active" data-layer="map">Схема</button><button type="button" data-layer="sat">Спутник</button></div>
   <button class="locate" id="locateButton" title="Моё местоположение" aria-label="Показать моё местоположение"><svg width="21" height="21" fill="none" viewBox="0 0 24 24"><path d="M12 2v3m0 14v3M2 12h3m14 0h3M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
   <section class="sheet" id="sheet" aria-label="Прогноз выбранной точки">
-    <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Развернуть или свернуть прогноз"></div>
-    <div class="sheet-head"><div class="sheet-title-area"><div class="eyebrow">Прогноз для точки</div><div class="sheet-name" id="pointName">Самара · примерная точка</div><div class="coord" id="pointCoords">53.20000, 50.15000</div></div><button class="minor-btn" id="saveButton" title="Сохранить точку">+ Сохранить</button><button class="minor-btn refresh-btn" id="refreshButton" title="Обновить прогноз" aria-label="Обновить прогноз"><svg width="17" height="17" fill="none" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.8 9A7 7 0 0 1 18.2 7L20 12M4 12l1.8 5A7 7 0 0 0 18.2 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+    <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Изменить высоту панели прогноза"></div>
+    <div class="sheet-head"><div class="sheet-title-area"><div class="eyebrow">Прогноз для точки</div><div class="sheet-name" id="pointName">Самара · примерная точка</div><div class="coord" id="pointCoords">53.20000, 50.15000</div></div><button class="minor-btn collapse-btn" id="minimizeSheet" type="button" aria-expanded="true" aria-label="Свернуть прогноз">⌄</button><button class="minor-btn" id="saveButton" title="Сохранить точку">+ Сохранить</button><button class="minor-btn refresh-btn" id="refreshButton" title="Обновить прогноз" aria-label="Обновить прогноз"><svg width="17" height="17" fill="none" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.8 9A7 7 0 0 1 18.2 7L20 12M4 12l1.8 5A7 7 0 0 0 18.2 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
     <div class="sheet-scroll" id="sheetScroll">
       <div id="weatherStatus" class="loading"><span class="spinner"></span> Получаю прогнозы трёх моделей…</div>
       <div id="weatherContent" hidden>
@@ -72,7 +103,7 @@
         <div class="metrics" id="metrics"></div>
         <div class="sun-row" id="sunRow"></div>
         <div class="model-top"><div class="section-title">Сравнение моделей</div><div class="tiny-note">Прогноз ≠ измерение</div></div>
-        <div class="model-table"><div class="model-head"><div>Модель</div><div>Ветер</div><div>°C</div><div>гПа</div></div><div id="modelRows"></div></div>
+        <div class="model-table"><div class="model-head"><div>Модель</div><div>Ветер (порывы)</div><div>°C</div><div>мм рт. ст.</div></div><div id="modelRows"></div></div><div class="model-help">Нажми на модель: её данные появятся в карточках и на карте ветра.</div>
         <div class="chart-tabs" role="group" aria-label="График"><button class="chart-tab active" data-metric="wind_speed_10m">Ветер</button><button class="chart-tab" data-metric="temperature_2m">Температура</button><button class="chart-tab" data-metric="pressure_msl">Давление</button></div>
         <div class="chart-wrap" id="chartWrap"></div>
         <div class="footer-note">Прогноз: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · ECMWF / NOAA / DWD. В затонах ветер и температура воды могут отличаться от расчёта для сетки модели. Уровень реки здесь не учитывается.</div>
@@ -95,6 +126,10 @@
     {id:'icon',api:'icon_global',label:'ICON',color:'#2f9b7c'}
   ];
   const HOURLY=['temperature_2m','wind_speed_10m','wind_gusts_10m','wind_direction_10m','pressure_msl','precipitation','cloud_cover'];
+  const MM_HG_PER_HPA=0.750061683;
+  function mmHg(hpa){return finite(hpa)?Math.round(hpa*MM_HG_PER_HPA):null}
+  const FORECAST_TIMEOUT=13000;
+  const FALLBACK_TIMEOUT=9000;
   const DEFAULT={lat:53.20,lng:50.15};
   function parseJson(key,fallback){try{let v=JSON.parse(localStorage.getItem(key));return v??fallback}catch{return fallback}}
   function saveJson(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true}catch(e){alert('Не удалось записать данные в память браузера. Возможно, хранилище заполнено.');return false}}
@@ -111,9 +146,10 @@
   const prefs=parseJson(PREF,{});
   let spots=(Array.isArray(parseJson(STORAGE,[]))?parseJson(STORAGE,[]):[]).filter(s=>s&&typeof s.name==='string'&&finite(s.lat)&&finite(s.lng)&&Math.abs(s.lat)<=90&&Math.abs(s.lng)<=180&&typeof s.id==='string');
   let selected={...DEFAULT,id:null,name:'Самара · примерная точка'};
+  let activeModel=MODELS.some(m=>m.id===prefs.activeModel)?prefs.activeModel:'ecmwf';
   let map,baseMap,satMap,selectedMarker,spotMarkers,forecast={},hours=[],hourIndex=0,chartMetric='wind_speed_10m',loadSeq=0;
   let windEnabled=prefs.windEnabled!==false,windGrid=[],windController=null,windSeq=0,windTimer=0,windSignature='',windFetchedAt=0;
-  let mapTileFailures=0,satTileFailures=0,windLoadError=false;
+  let mapTileFailures=0,satTileFailures=0,windLoadError=false,windLoading=false;
   const cache=new Map();
   const MAP_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> · <a href="https://www.openstreetmap.fr/usage/" target="_blank">OSM France</a>';
   const SAT_ATTR='Imagery &copy; Esri, Vantor, Earthstar Geographics, GIS User Community';
@@ -192,15 +228,16 @@
   function updateWindButton(){
     const b=$('windControl');b.classList.toggle('active',windEnabled);
     b.setAttribute('aria-pressed',String(windEnabled));
-    b.textContent=!windEnabled?'↗ Ветер: выкл':windLoadError?'↗ Ветер: ошибка':'↗ Ветер: вкл';
+    b.textContent=!windEnabled?'↗ Ветер: выкл':windLoadError?'↗ Ветер: ошибка':windLoading?'↗ Ветер: загрузка…':'↗ Ветер: '+activeWindModel().label;
     $('windOverlay').classList.toggle('on',windEnabled);
     $('windLegend').hidden=!windEnabled||!windGrid.length;
   }
   $('windControl').onclick=()=>{
     windEnabled=!windEnabled;prefs.windEnabled=windEnabled;saveJson(PREF,prefs);updateWindButton();
     if(windEnabled){renderWind();scheduleWindGrid(true)}
-    else{clearTimeout(windTimer);windController?.abort();windSeq++;}
+    else{clearTimeout(windTimer);windController?.abort();windSeq++;windLoading=false;}
   };
+  function activeWindModel(){return MODELS.find(m=>m.id===activeModel)||MODELS[0]}
   function windHour(){
     if(hours.length&&hours[hourIndex])return hours[hourIndex];
     return new Date(Date.now()+4*3600000).toISOString().slice(0,13)+':00';
@@ -212,11 +249,12 @@
   }
   async function loadWindGrid(force=false){
     if(!windEnabled||!map)return;
-    const center=map.getCenter(),sig=[Math.round(center.lat*8)/8,Math.round(center.lng*8)/8,map.getZoom(),Math.round(map.getSize().x/300),Math.round(map.getSize().y/300)].join(':');
+    const center=map.getCenter(),sig=[activeModel,Math.round(center.lat*8)/8,Math.round(center.lng*8)/8,map.getZoom(),Math.round(map.getSize().x/300),Math.round(map.getSize().y/300)].join(':');
     if(!force&&windGrid.length&&windSignature===sig&&Date.now()-windFetchedAt<12*60*1000){renderWind();return}
     windController?.abort();
     const controller=new AbortController();windController=controller;const seq=++windSeq;
-    const size=map.getSize(),cols=5,rows=4,points=[];
+    windLoading=true;windLoadError=false;updateWindButton();
+    const size=map.getSize(),cols=3,rows=3,points=[];
     for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
       const pt=map.containerPointToLatLng([size.x*i/(cols-1),size.y*j/(rows-1)]);
       points.push({lat:Math.max(-85,Math.min(85,pt.lat)),lon:((pt.lng+540)%360)-180});
@@ -225,8 +263,9 @@
     for(const [key,val] of Object.entries({
       latitude:points.map(p=>p.lat.toFixed(5)).join(','),longitude:points.map(p=>p.lon.toFixed(5)).join(','),
       hourly:'wind_speed_10m,wind_direction_10m',wind_speed_unit:'ms',timezone:'Europe/Samara',
-      forecast_days:'4',models:'ecmwf_ifs025'
+      forecast_days:'4',models:activeWindModel().api
     }))url.searchParams.set(key,val);
+    const timer=setTimeout(()=>controller.abort(),10000);
     try{
       const response=await fetch(url,{signal:controller.signal});
       if(!response.ok)throw Error('HTTP '+response.status);
@@ -234,15 +273,15 @@
       const grid=points.map((p,i)=>({...p,hourly:list[i]?.hourly}));
       if(grid.every(p=>!Array.isArray(p.hourly?.time)))throw Error('Нет данных ветра');
       if(seq!==windSeq||!windEnabled)return;
-      windGrid=grid;windSignature=sig;windFetchedAt=Date.now();windLoadError=false;updateWindButton();
-      $('windControl').title='Прогноз ветра ECMWF · цвет скорость, стрелки направление';
+      windGrid=grid;windSignature=sig;windFetchedAt=Date.now();windLoading=false;windLoadError=false;updateWindButton();
+      $('windControl').title='Прогноз ветра '+activeWindModel().label+' · цвет скорость, стрелки направление';
       renderWind();
     }catch(err){
-      if(seq!==windSeq||err?.name==='AbortError')return;
+      if(seq!==windSeq)return;
       $('windControl').title='Не удалось получить поле ветра: '+String(err?.message||err)+'. Нажми для повтора.';
       // Не закрашиваем карту выдуманными значениями при ошибке загрузки.
-      windGrid=[];windLoadError=true;updateWindButton();renderWind();$('windLegend').hidden=true;
-    }
+      windGrid=[];windLoading=false;windLoadError=true;updateWindButton();renderWind();$('windLegend').hidden=true;
+    }finally{clearTimeout(timer)}
   }
   function windVectors(hour){
     return windGrid.map(p=>{
@@ -286,59 +325,144 @@
       ctx.strokeStyle='rgba(255,255,255,.83)';ctx.lineWidth=3.6;ctx.lineCap='round';ctx.lineJoin='round';paint();
       ctx.strokeStyle='rgba(20,54,63,.82)';ctx.lineWidth=1.65;paint();
     }
-    $('windLegendTime').textContent='Ветер ECMWF · '+clock(windHour());
+    $('windLegendTime').textContent='Ветер '+activeWindModel().label+' · '+clock(windHour());
     legend.hidden=false;
   }
 
   function renderMarkers(){if(!spotMarkers)return;spotMarkers.clearLayers();for(const s of spots){if(s.id===selected.id)continue;L.marker([s.lat,s.lng],{icon:markerIcon(true,false)}).addTo(spotMarkers).on('click',()=>{selectPoint(s,true);map.panTo([s.lat,s.lng])})} $('spotCount').textContent=String(spots.length);$('drawerCount').textContent=String(spots.length);}
-  function selectPoint(s,expand){selected={lat:s.lat,lng:s.lng,id:s.id??null,name:s.name??'Точка на карте'};if(selectedMarker)selectedMarker.setLatLng([s.lat,s.lng]).setIcon(markerIcon(!!selected.id,true));renderMarkers();$('pointName').textContent=selected.name;$('pointCoords').textContent=`${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`; $('saveButton').textContent=selected.id?'✎ Название':'+ Сохранить';$('saveButton').classList.toggle('is-saved',!!selected.id);if(expand)$('sheet').classList.add('expanded');loadWeather();}
-  function openForecast(expand){if(expand)$('sheet').classList.add('expanded')}
+  function selectPoint(s,expand){selected={lat:s.lat,lng:s.lng,id:s.id??null,name:s.name??'Точка на карте'};if(selectedMarker)selectedMarker.setLatLng([s.lat,s.lng]).setIcon(markerIcon(!!selected.id,true));renderMarkers();$('pointName').textContent=selected.name;$('pointCoords').textContent=`${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`; $('saveButton').textContent=selected.id?'✎ Название':'+ Сохранить';$('saveButton').classList.toggle('is-saved',!!selected.id);if(expand)setSheetState('expanded');loadWeather();}
+  function openForecast(expand){if(expand)setSheetState('expanded')}
   function status(msg,error=false){const s=$('weatherStatus');s.hidden=false;s.innerHTML=error?`<div class="banner">${esc(msg)}</div>`:`<span class="spinner"></span>${esc(msg)}`}
+  async function fetchWeatherModel(model,lat,lon,timeoutMs=FORECAST_TIMEOUT){
+    const url=new URL('https://api.open-meteo.com/v1/forecast');
+    const params={latitude:lat.toFixed(5),longitude:lon.toFixed(5),hourly:HOURLY.join(','),
+      daily:'sunrise,sunset',timezone:'Europe/Samara',forecast_days:'4',wind_speed_unit:'ms',models:model};
+    for(const [key,val] of Object.entries(params))url.searchParams.set(key,val);
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const resp=await fetch(url.toString(),{signal:controller.signal,cache:'no-store'});
+      if(!resp.ok){const e=await resp.json().catch(()=>null);throw Error(e?.reason||'HTTP '+resp.status)}
+      const data=await resp.json();
+      if(!Array.isArray(data?.hourly?.time)||!data.hourly.time.length)throw Error('Нет почасовых данных');
+      return data;
+    }finally{clearTimeout(timer)}
+  }
   async function loadWeather(force=false){
-    const seq=++loadSeq, lat=selected.lat,lon=selected.lng;let key=lat.toFixed(4)+','+lon.toFixed(4);
-    $('weatherContent').hidden=true;status('Получаю прогнозы трёх моделей…');
-    if(!force&&cache.has(key)&&Date.now()-cache.get(key).time<15*60*1000){setWeather(cache.get(key).data,seq);return}
+    const seq=++loadSeq,lat=selected.lat,lon=selected.lng,key=lat.toFixed(4)+','+lon.toFixed(4);
+    $('weatherContent').hidden=true;
+    status('Загружаю ECMWF, GFS и ICON…');
+    if(!force&&cache.has(key)&&Date.now()-cache.get(key).time<15*60*1000){
+      setWeather(cache.get(key).data,seq);return;
+    }
     const results=await Promise.all(MODELS.map(async m=>{
-      const url=new URL('https://api.open-meteo.com/v1/forecast');
-      const params={latitude:lat.toFixed(5),longitude:lon.toFixed(5),hourly:HOURLY.join(','),daily:'sunrise,sunset',timezone:'Europe/Samara',forecast_days:'4',wind_speed_unit:'ms',models:m.api};
-      for(const [p,v] of Object.entries(params))url.searchParams.set(p,v);
-      try{const r=await fetch(url.toString(),{mode:'cors'});if(!r.ok){let j=await r.json().catch(()=>null);throw new Error(j?.reason||`HTTP ${r.status}`)}const data=await r.json();if(!data?.hourly?.time?.length)throw new Error('Нет почасового прогноза');return{id:m.id,data};}catch(error){return{id:m.id,error:error?.message||'Неизвестная ошибка'};}
+      try{return {id:m.id,data:await fetchWeatherModel(m.api,lat,lon)}}
+      catch(error){return {id:m.id,error:error?.name==='AbortError'?'Превышено время ожидания':String(error?.message||error)}}
     }));
     if(seq!==loadSeq)return;
-    let next={};for(const r of results)next[r.id]=r.data||{error:r.error};
-    if(results.some(r=>r.data))cache.set(key,{time:Date.now(),data:next});
-    setWeather(next,seq);
+    const next={};
+    for(const r of results)next[r.id]=r.data||{error:r.error};
+    const anyValid=results.some(r=>r.data);
+    if(!anyValid){
+      status('Модели пока не ответили. Проверяю резервный прогноз…');
+      try{next.fallback=await fetchWeatherModel('best_match',lat,lon,FALLBACK_TIMEOUT)}
+      catch(err){next.fallback={error:err?.name==='AbortError'?'Превышено время ожидания':String(err?.message||err)}}
+    }
+    if(seq!==loadSeq)return;
+    if(anyValid||Array.isArray(next.fallback?.hourly?.time))cache.set(key,{time:Date.now(),data:next});
+    try{setWeather(next,seq)}
+    catch(error){if(seq!==loadSeq)return;status('Не удалось отобразить прогноз: '+String(error.message||error),true)}
   }
-  function setWeather(data,seq){if(seq!==loadSeq)return;forecast=data;let valid=MODELS.map(m=>data[m.id]).filter(v=>Array.isArray(v?.hourly?.time));
-    if(!valid.length){status('Не удалось получить прогноз. Проверь интернет или открой страницу по HTTPS и обнови.',true);return}
-    hours=valid[0].hourly.time;let now=Date.now();hourIndex=hours.findIndex(h=>dateMs(h)>=now-30*60*1000);if(hourIndex<0)hourIndex=0;
-    let missing=MODELS.filter(m=>!data[m.id]?.hourly?.time).map(m=>m.label);$('weatherStatus').hidden=!missing.length;
-    if(missing.length){$('weatherStatus').innerHTML=`<div class="banner neutral">Не загрузились: ${missing.join(', ')}. Остальные модели доступны.</div>`}
-    $('weatherContent').hidden=false;renderAll();
+  function setWeather(data,seq){
+    if(seq!==loadSeq)return;
+    forecast=data;
+    const valid=MODELS.map(m=>data[m.id]).filter(v=>Array.isArray(v?.hourly?.time));
+    if(!valid.length&&Array.isArray(data.fallback?.hourly?.time))valid.push(data.fallback);
+    if(!valid.length){
+      const why=MODELS.map(m=>m.label+': '+String(data[m.id]?.error||'нет ответа')).join('; ');
+      status('Прогноз не загрузился. '+why+'. Попробуй обновить или проверить доступ к api.open-meteo.com.',true);
+      return;
+    }
+    hours=valid[0].hourly.time;
+    hourIndex=hours.findIndex(h=>dateMs(h)>=Date.now()-30*60*1000);
+    if(hourIndex<0)hourIndex=0;
+    const missing=MODELS.filter(m=>!Array.isArray(data[m.id]?.hourly?.time)).map(m=>m.label);
+    const stat=$('weatherStatus');
+    if(missing.length){
+      stat.hidden=false;
+      stat.innerHTML='<div class="banner neutral">'+
+        (Array.isArray(data.fallback?.hourly?.time)
+          ?'Основные модели недоступны, показан резервный прогноз Open-Meteo.'
+          :'Не загрузились: '+missing.join(', ')+'. Можно выбрать доступные модели.')+'</div>';
+    }else{stat.hidden=true;stat.innerHTML=''}
+    $('weatherContent').hidden=false;
+    if(!valid.some(d=>d===forecast[activeModel]))activeModel=MODELS.find(m=>Array.isArray(forecast[m.id]?.hourly?.time))?.id||activeModel;
+    renderAll();
   }
   function valuesFor(model,hour){const v=forecast[model];if(!v?.hourly?.time)return null;const ind=v.hourly.time.indexOf(hour);if(ind<0)return null;return Object.fromEntries(HOURLY.map(k=>[k,v.hourly[k]?.[ind]??null]));}
-  function firstValues(hour){for(const m of MODELS){let v=valuesFor(m.id,hour);if(v)return v}return null}
+  function firstValues(hour){
+    const preferred=valuesFor(activeModel,hour);
+    if(preferred)return preferred;
+    for(const m of MODELS){const v=valuesFor(m.id,hour);if(v)return v}
+    const v=forecast.fallback;if(v?.hourly?.time){
+      const i=v.hourly.time.indexOf(hour);if(i>=0)return Object.fromEntries(HOURLY.map(k=>[k,v.hourly[k]?.[i]??null]));
+    }
+    return null;
+  }
+  function chooseModel(id){
+    if(!MODELS.some(m=>m.id===id)||!Array.isArray(forecast[id]?.hourly?.time))return;
+    activeModel=id;prefs.activeModel=id;saveJson(PREF,prefs);
+    // Old spatial wind field belongs to a different model — never mislabel it.
+    windGrid=[];windSignature='';windController?.abort();windLoading=false;windLoadError=false;windSeq++;
+    updateWindButton();$('windLegend').hidden=true;
+    renderMetrics();renderModels();renderChart();renderWind();
+    scheduleWindGrid(true);
+  }
   function renderHours(){const strip=$('hourStrip');strip.innerHTML='';const start=Math.max(0,hours.findIndex(h=>dateMs(h)>=Date.now()-30*60*1000));for(let i=start;i<hours.length&&i<start+48;i+=2){let h=hours[i];const b=document.createElement('button');b.className='hour-chip'+(hourIndex===i?' active':'');b.type='button';b.innerHTML=`<strong>${clock(h)}</strong><small>${dayLabel(h)}</small>`;b.onclick=()=>{hourIndex=i;renderAll(false);b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})};strip.appendChild(b)}
     // When selecting a time between displayed chips, show the closest visible chip.
     const selected=strip.querySelector('.active');if(selected)selected.scrollIntoView({block:'nearest',inline:'nearest'});
   }
   function renderMetrics(){let h=hours[hourIndex],v=firstValues(h);if(!v)return;
-    let metrics=[['Ветер',round(v.wind_speed_10m,1), 'м/с',`Порывы до ${round(v.wind_gusts_10m,1)} м/с · ${windDir(v.wind_direction_10m)}`],['Температура',round(v.temperature_2m,1),'°C', 'Воздух · 2 м'],['Давление',round(v.pressure_msl),'гПа','Приведено к уровню моря']];
+    let metrics=[['Ветер',round(v.wind_speed_10m,1), 'м/с',`Порывы: ${round(v.wind_gusts_10m,1)} м/с · ${windDir(v.wind_direction_10m)}`],['Температура',round(v.temperature_2m,1),'°C',activeModel.toUpperCase()+' · воздух 2 м'],['Давление',round(mmHg(v.pressure_msl)),'мм рт. ст.','Приведено к уровню моря']];
     $('metrics').innerHTML=metrics.map(x=>`<div class="metric"><div class="lbl">${x[0]}</div><div class="val">${x[1]} <span class="unit">${x[2]}</span></div><div class="extra">${x[3]}</div></div>`).join('');
     let date=h.slice(0,10),d=MODELS.map(m=>forecast[m.id]?.daily).find(d=>Array.isArray(d?.time));const di=d?.time?.indexOf(date)??-1;
     $('sunRow').innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 16h18M6 19h12M5 13a7 7 0 0 1 14 0M12 2v3m-7 1L3 4m16 2 2-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Восход <b>${di>=0?clock(d.sunrise?.[di]):'—'}</b></span><span class="dot">·</span><span>Закат <b>${di>=0?clock(d.sunset?.[di]):'—'}</b></span>`;
   }
-  function renderModels(){let h=hours[hourIndex];$('modelRows').innerHTML=MODELS.map(m=>{let v=valuesFor(m.id,h);return `<div class="model-row"><div class="model-label"><span class="line-dot" style="background:${m.color}"></span>${m.label}</div>${v?`<span class="valnum">${round(v.wind_speed_10m,1)} <span class="muted" style="font-size:10px">(${round(v.wind_gusts_10m,1)})</span></span><span class="valnum">${round(v.temperature_2m,1)}</span><span class="valnum">${round(v.pressure_msl)}</span>`:'<span class="missing">—</span><span class="missing">—</span><span class="missing">—</span>'}</div>`}).join('');}
+  function renderModels(){
+    const hour=hours[hourIndex],node=$('modelRows');
+    node.innerHTML=MODELS.map(m=>{
+      const v=valuesFor(m.id,hour),selected=m.id===activeModel;
+      const disabled=!v;
+      return `<button type="button" class="model-row${selected?' selected':''}" data-model="${m.id}" aria-pressed="${selected}" ${disabled?'disabled':''} title="${disabled?'Нет прогноза':'Показать '+m.label+' на карте'}"><span class="model-label"><span class="line-dot" style="background:${m.color}"></span>${m.label}${selected?' ✓':''}</span>${v?`<span class="valnum">${round(v.wind_speed_10m,1)} <span class="gust-note">(${round(v.wind_gusts_10m,1)})</span></span><span class="valnum">${round(v.temperature_2m,1)}</span><span class="valnum">${round(mmHg(v.pressure_msl))}</span>`:'<span class="missing">—</span><span class="missing">—</span><span class="missing">—</span>'}</button>`;
+    }).join('');
+    node.querySelectorAll('[data-model]').forEach(btn=>btn.onclick=()=>chooseModel(btn.dataset.model));
+  }
   function renderChart(){let key=chartMetric;let start=hourIndex;let sample=hours.slice(start,start+25);if(sample.length<2){$('chartWrap').textContent='Нет данных для графика';return}
     let series=MODELS.map(m=>({m,ys:sample.map(h=>valuesFor(m.id,h)?.[key]??null)}));let nums=series.flatMap(s=>s.ys).filter(finite);if(!nums.length){$('chartWrap').innerHTML='<p class="info-text">Недостаточно данных для графика</p>';return}
+    if(key==='pressure_msl'){series.forEach(s=>s.ys=s.ys.map(v=>finite(v)?mmHg(v):null));nums=series.flatMap(s=>s.ys).filter(finite)}
     let min=Math.min(...nums),max=Math.max(...nums),pad=(max-min||2)*.18;min-=pad;max+=pad;const W=360,H=126,L=37,R=7,T=8,B=19;const x=i=>L+(W-L-R)*i/(sample.length-1);const y=v=>T+(H-T-B)*(max-v)/(max-min);let chunks=[];
     for(let i=0;i<4;i++){let v=min+(max-min)*i/3,py=y(v);chunks.push(`<line class="chart-grid" x1="${L}" y1="${py}" x2="${W-R}" y2="${py}"/><text class="chart-label" x="${L-6}" y="${py+3}" text-anchor="end">${key==='pressure_msl'?v.toFixed(0):v.toFixed(1)}</text>`)}
     for(let i=0;i<sample.length;i+=6){chunks.push(`<text class="chart-label" x="${x(i)}" y="${H-3}" text-anchor="middle">${sample[i].slice(11,16)}</text>`)}
-    for(const s of series){let path='',on=false;s.ys.forEach((v,i)=>{if(!finite(v)){on=false;return}path+=(on?' L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);on=true});if(path)chunks.push(`<path class="chart-path" stroke="${s.m.color}" d="${path}"/>`)}
-    $('chartWrap').innerHTML=`<svg role="img" aria-label="Прогноз по моделям на следующие 24 часа" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${chunks.join('')}</svg><div style="display:flex;justify-content:space-between;gap:8px;color:#92a199;font-size:10px;padding:3px 5px"><span>Следующие 24 часа</span><span>${key==='wind_speed_10m'?'м/с':key==='temperature_2m'?'°C':'гПа'}</span></div>`;
+    for(const s of series){let path='',on=false;s.ys.forEach((v,i)=>{if(!finite(v)){on=false;return}path+=(on?' L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);on=true});if(path)chunks.push(`<path class="chart-path" stroke="${s.m.color}" stroke-width="${s.m.id===activeModel?3.6:1.6}" opacity="${s.m.id===activeModel?1:.57}" d="${path}"/>`)}
+    $('chartWrap').innerHTML=`<svg role="img" aria-label="Прогноз по моделям на следующие 24 часа" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${chunks.join('')}</svg><div style="display:flex;justify-content:space-between;gap:8px;color:#92a199;font-size:10px;padding:3px 5px"><span>Следующие 24 часа</span><span>${key==='wind_speed_10m'?'м/с':key==='temperature_2m'?'°C':'мм рт. ст.'}</span></div>`;
   }
   function renderAll(resetHours=true){if(resetHours)renderHours();else{document.querySelectorAll('.hour-chip').forEach(b=>b.classList.remove('active'));renderHours()}renderMetrics();renderModels();renderChart();renderWind()}
-  $('sheetHandle').onclick=()=>$('sheet').classList.toggle('expanded');$('sheetHandle').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('sheetHandle').click()}};
+  function setSheetState(state){
+    const sheet=$('sheet');sheet.classList.toggle('collapsed',state==='collapsed');
+    sheet.classList.toggle('expanded',state==='expanded');
+    const collapsed=state==='collapsed',btn=$('minimizeSheet');
+    btn.textContent=collapsed?'⌃':'⌄';
+    btn.setAttribute('aria-label',collapsed?'Открыть прогноз':'Свернуть прогноз до строки');
+    btn.setAttribute('aria-expanded',String(!collapsed));
+    prefs.sheetState=state;saveJson(PREF,prefs);
+  }
+  $('minimizeSheet').onclick=()=>setSheetState($('sheet').classList.contains('collapsed')?'normal':'collapsed');
+  $('sheetHandle').onclick=()=>setSheetState($('sheet').classList.contains('collapsed')?'normal':$('sheet').classList.contains('expanded')?'normal':'expanded');
+  $('sheetHandle').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('sheetHandle').click()}};
+  let handleStartY=null;
+  $('sheetHandle').addEventListener('touchstart',e=>{handleStartY=e.touches[0]?.clientY??null},{passive:true});
+  $('sheetHandle').addEventListener('touchend',e=>{if(handleStartY===null)return;const dy=(e.changedTouches[0]?.clientY??handleStartY)-handleStartY;handleStartY=null;if(dy>45)setSheetState('collapsed');else if(dy<-45)setSheetState('expanded')},{passive:true});
+  setSheetState(['collapsed','normal','expanded'].includes(prefs.sheetState)?prefs.sheetState:'normal');
   $('refreshButton').onclick=()=>loadWeather(true);
   document.querySelectorAll('.chart-tab').forEach(b=>b.onclick=()=>{chartMetric=b.dataset.metric;document.querySelectorAll('.chart-tab').forEach(a=>a.classList.toggle('active',a===b));renderChart()});
   $('locateButton').onclick=()=>{if(!map)return;if(!navigator.geolocation){alert('Геолокация не поддерживается.');return}navigator.geolocation.getCurrentPosition(p=>{const s={lat:p.coords.latitude,lng:p.coords.longitude,name:'Моё местоположение'};map.setView([s.lat,s.lng],13);selectPoint(s,true)},()=>alert('Не удалось определить координаты. Разреши геолокацию в настройках Safari.'),{enableHighAccuracy:true,timeout:12000,maximumAge:300000})};

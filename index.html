@@ -235,6 +235,34 @@
   let windEnabled=prefs.windEnabled!==false,windGrid=[],windController=null,windSeq=0,windTimer=0,windSignature='',windFetchedAt=0;
   let mapTileFailures=0,satTileFailures=0,windLoadError=false,windLoading=false;
   const cache=new Map();
+  let weatherGridData=null,weatherGridPromise=null,weatherGridAt=0,forecastNote='';
+  function kmDistance(a,b,c,d){
+    const p=Math.PI/180,delta1=(c-a)*p,delta2=(d-b)*p;
+    const v=Math.sin(delta1/2)**2+Math.cos(a*p)*Math.cos(c*p)*Math.sin(delta2/2)**2;
+    return 12742*Math.asin(Math.min(1,Math.sqrt(v)));
+  }
+  async function loadPublishedForecast(force=false){
+    if(!force&&weatherGridData&&Date.now()-weatherGridAt<12*60*1000)return weatherGridData;
+    if(weatherGridPromise)return weatherGridPromise;
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),12000);
+    weatherGridPromise=(async()=>{
+      const res=await fetch('./data/weather-grid.json?version='+Math.floor(Date.now()/300000),{cache:'no-store',signal:ctrl.signal});
+      if(!res.ok)throw Error('Weather cache HTTP '+res.status);
+      const data=await res.json();
+      if(!Array.isArray(data?.points)||!data.points.length)throw Error('Региональный прогноз ещё не рассчитан');
+      weatherGridData=data;weatherGridAt=Date.now();return data;
+    })();
+    try{return await weatherGridPromise}finally{clearTimeout(timer);weatherGridPromise=null}
+  }
+  function closestPublishedNode(data,lat,lon){
+    let best=null,distance=Infinity;
+    for(const node of data?.points||[]){
+      if(!finite(node.lat)||!finite(node.lon))continue;
+      const km=kmDistance(lat,lon,node.lat,node.lon);
+      if(km<distance){distance=km;best=node}
+    }
+    return{node:best,distance};
+  }
   const MAP_ATTR='Map &copy; Esri, HERE, USGS, TomTom and GIS User Community';
   const SAT_ATTR='Imagery &copy; Esri, Vantor, Earthstar Geographics, GIS User Community';
   // A failed image can otherwise leave large empty squares. Try a second legal tile host.
@@ -268,9 +296,9 @@
     if(typeof L==='undefined'){$('weatherStatus').innerHTML='<div class="banner">Не удалось загрузить библиотеку карты. Проверь подключение к интернету и обнови страницу.</div>';return}
     map=L.map('map',{zoomControl:false,preferCanvas:true,worldCopyJump:true,attributionControl:true,zoomAnimation:true}).setView([prefs.lat??DEFAULT.lat,prefs.lng??DEFAULT.lng],prefs.zoom??11);
     map.attributionControl.setPosition('topright');
-    baseMap=new ResilientTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{
+    baseMap=new ResilientTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
       attribution:MAP_ATTR,maxZoom:19,keepBuffer:4,updateWhenIdle:true,backupTiles:[
-        (z,x,y)=>`https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${z}/${y}/${x}`
+        (z,x,y)=>`https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`
       ]
     }).setZIndex(1).addTo(map);
     satMap=new ResilientTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
@@ -332,39 +360,29 @@
   }
   async function loadWindGrid(force=false){
     if(!windEnabled||!map)return;
-    const center=map.getCenter(),sig=[activeModel,Math.round(center.lat*8)/8,Math.round(center.lng*8)/8,map.getZoom(),Math.round(map.getSize().x/300),Math.round(map.getSize().y/300)].join(':');
-    if(!force&&windGrid.length&&windSignature===sig&&Date.now()-windFetchedAt<12*60*1000){renderWind();return}
-    windController?.abort();
-    const controller=new AbortController();windController=controller;const seq=++windSeq;
-    windLoading=true;windLoadError=false;updateWindButton();
-    const size=map.getSize(),cols=3,rows=3,points=[];
-    for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
-      const pt=map.containerPointToLatLng([size.x*i/(cols-1),size.y*j/(rows-1)]);
-      points.push({lat:Math.max(-85,Math.min(85,pt.lat)),lon:((pt.lng+540)%360)-180});
-    }
-    const url=new URL('https://api.open-meteo.com/v1/forecast');
-    for(const [key,val] of Object.entries({
-      latitude:points.map(p=>p.lat.toFixed(5)).join(','),longitude:points.map(p=>p.lon.toFixed(5)).join(','),
-      hourly:'wind_speed_10m,wind_direction_10m',wind_speed_unit:'ms',timezone:'Europe/Samara',
-      forecast_days:'7',models:activeWindModel().api
-    }))url.searchParams.set(key,val);
-    const timer=setTimeout(()=>controller.abort(),10000);
+    const center=map.getCenter(),signature=[activeModel,Math.round(center.lat*8)/8,Math.round(center.lng*8)/8,map.getZoom()].join(':');
+    if(!force&&windGrid.length&&windSignature===signature&&Date.now()-windFetchedAt<10*60*1000){renderWind();return}
+    const seq=++windSeq;windLoading=true;windLoadError=false;updateWindButton();
     try{
-      const response=await fetch(url,{signal:controller.signal});
-      if(!response.ok)throw Error('HTTP '+response.status);
-      const data=await response.json(),list=Array.isArray(data)?data:[data];
-      const grid=points.map((p,i)=>({...p,hourly:list[i]?.hourly}));
-      if(grid.every(p=>!Array.isArray(p.hourly?.time)))throw Error('Нет данных ветра');
+      const published=await loadPublishedForecast(force);
       if(seq!==windSeq||!windEnabled)return;
-      windGrid=grid;windSignature=sig;windFetchedAt=Date.now();windLoading=false;windLoadError=false;updateWindButton();
-      $('windControl').title='Прогноз ветра '+activeWindModel().label+' · цвет скорость, стрелки направление';
+      const nearest=closestPublishedNode(published,center.lat,center.lng);
+      if(!nearest.node||nearest.distance>55)throw Error('Ветер на карте доступен в районе Волги, Самары и Сока');
+      const nodes=published.points.filter(p=>Array.isArray(p[activeModel]?.hourly?.time)).map(p=>({
+        ...p,km:kmDistance(center.lat,center.lng,p.lat,p.lon)
+      })).sort((a,b)=>a.km-b.km).slice(0,20);
+      if(!nodes.length)throw Error('Нет узлов ветра для '+activeModel);
+      windGrid=nodes.map(p=>({lat:p.lat,lon:p.lon,hourly:p[activeModel].hourly}));
+      windSignature=signature;windFetchedAt=Date.now();windLoading=false;windLoadError=false;updateWindButton();
+      $('windControl').title='Готовые прогнозы '+activeWindModel().label+' · обновляются GitHub Actions';
       renderWind();
     }catch(err){
       if(seq!==windSeq)return;
-      $('windControl').title='Не удалось получить поле ветра: '+String(err?.message||err)+'. Нажми для повтора.';
-      // Не закрашиваем карту выдуманными значениями при ошибке загрузки.
-      windGrid=[];windLoading=false;windLoadError=true;updateWindButton();renderWind();$('windLegend').hidden=true;
-    }finally{clearTimeout(timer)}
+      windGrid=[];windLoading=false;windLoadError=true;updateWindButton();
+      $('windControl').title='Нет поля ветра: '+String(err?.message||err);
+      $('windLegend').hidden=true;
+      const ctx=$('windOverlay').getContext('2d');if(ctx)ctx.clearRect(0,0,$('windOverlay').width,$('windOverlay').height);
+    }
   }
   function windVectors(hour){
     return windGrid.map(p=>{
@@ -433,28 +451,54 @@
   }
   async function loadWeather(force=false){
     const seq=++loadSeq,lat=selected.lat,lon=selected.lng,key=lat.toFixed(4)+','+lon.toFixed(4);
-    $('weatherContent').hidden=true;
-    status('Загружаю ECMWF, GFS и ICON…');
+    $('weatherContent').hidden=true;forecastNote='';
+    status('Загружаю прогноз из GitHub без VPN…');
     if(!force&&cache.has(key)&&Date.now()-cache.get(key).time<15*60*1000){
+      forecastNote=cache.get(key).note||'';
       setWeather(cache.get(key).data,seq);return;
     }
-    const results=await Promise.all(MODELS.map(async m=>{
-      try{return {id:m.id,data:await fetchWeatherModel(m.api,lat,lon)}}
-      catch(error){return {id:m.id,error:error?.name==='AbortError'?'Превышено время ожидания':String(error?.message||error)}}
-    }));
-    if(seq!==loadSeq)return;
-    const next={};
-    for(const r of results)next[r.id]=r.data||{error:r.error};
-    const anyValid=results.some(r=>r.data);
-    if(!anyValid){
-      status('Модели пока не ответили. Проверяю резервный прогноз…');
-      try{next.fallback=await fetchWeatherModel('best_match',lat,lon,FALLBACK_TIMEOUT)}
-      catch(err){next.fallback={error:err?.name==='AbortError'?'Превышено время ожидания':String(err?.message||err)}}
+    let published=null;
+    try{published=await loadPublishedForecast(force)}catch(error){
+      console.warn('GitHub cached weather is not yet available',error.message);
     }
     if(seq!==loadSeq)return;
-    if(anyValid||Array.isArray(next.fallback?.hourly?.time))cache.set(key,{time:Date.now(),data:next});
+    if(published){
+      const nearest=closestPublishedNode(published,lat,lon);
+      if(nearest.node&&nearest.distance<=50){
+        const data={};
+        for(const model of MODELS)data[model.id]=nearest.node[model.id]||{error:'Нет данных модели'};
+        if(MODELS.some(m=>Array.isArray(data[m.id]?.hourly?.time))){
+          const times=MODELS.map(m=>data[m.id]?.updatedAt).filter(Boolean);
+          const newest=times.length?times.sort().at(-1):published.generatedAt;
+          const age=newest?Math.round((Date.now()-Date.parse(newest))/3600000):null;
+          forecastNote='Данные из GitHub · ближайший узел '+round(nearest.distance,0)+' км'+
+            (newest?' · обновлено '+new Date(newest).toLocaleString('ru-RU',{timeZone:'Europe/Samara',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'')+
+            (age!==null&&age>18?' · прогноз может устареть':'');
+          cache.set(key,{time:Date.now(),data,note:forecastNote});
+          setWeather(data,seq);return;
+        }
+      }else forecastNote='За пределами рассчитанного района. Пробую прямой запрос Open-Meteo.';
+    }else forecastNote='Кеш GitHub ещё готовится. Пробую прямой запрос Open-Meteo.';
+    status(forecastNote);
+    const results=await Promise.all(MODELS.map(async m=>{
+      try{return{id:m.id,data:await fetchWeatherModel(m.api,lat,lon,FORECAST_TIMEOUT)}}
+      catch(error){return{id:m.id,error:error?.name==='AbortError'?'Превышено время ожидания':String(error?.message||error)}}
+    }));
+    if(seq!==loadSeq)return;
+    const next={};for(const r of results)next[r.id]=r.data||{error:r.error};
+    const anyValid=results.some(r=>r.data);
+    if(!anyValid){
+      status('Проверяю резервный источник…');
+      try{next.fallback=await fetchWeatherModel('best_match',lat,lon,FALLBACK_TIMEOUT)}
+      catch(error){next.fallback={error:error?.name==='AbortError'?'Превышено время ожидания':String(error?.message||error)}}
+    }
+    if(seq!==loadSeq)return;
+    if(anyValid||Array.isArray(next.fallback?.hourly?.time)){
+      forecastNote='Прямой прогноз Open-Meteo'+(forecastNote.startsWith('За пределами')?' · вне покрытия GitHub':'');
+      cache.set(key,{time:Date.now(),data:next,note:forecastNote});
+    }
     try{setWeather(next,seq)}
-    catch(error){if(seq!==loadSeq)return;status('Не удалось отобразить прогноз: '+String(error.message||error),true)}
+    catch(error){if(seq===loadSeq)status('Ошибка отображения прогноза: '+String(error.message||error),true)}
   }
   function setWeather(data,seq){
     if(seq!==loadSeq)return;
@@ -463,7 +507,7 @@
     if(!valid.length&&Array.isArray(data.fallback?.hourly?.time))valid.push(data.fallback);
     if(!valid.length){
       const why=MODELS.map(m=>m.label+': '+String(data[m.id]?.error||'нет ответа')).join('; ');
-      status('Прогноз не загрузился. '+why+'. Попробуй обновить или проверить доступ к api.open-meteo.com.',true);
+      status('Прогноз пока недоступен. '+why+'. Для Самарского района дождись первого обновления GitHub Actions.',true);
       return;
     }
     hours=valid[0].hourly.time;
@@ -471,12 +515,11 @@
     if(hourIndex<0)hourIndex=0;
     const missing=MODELS.filter(m=>!Array.isArray(data[m.id]?.hourly?.time)).map(m=>m.label);
     const stat=$('weatherStatus');
-    if(missing.length){
+    if(missing.length||forecastNote){
       stat.hidden=false;
-      stat.innerHTML='<div class="banner neutral">'+
-        (Array.isArray(data.fallback?.hourly?.time)
-          ?'Основные модели недоступны, показан резервный прогноз Open-Meteo.'
-          :'Не загрузились: '+missing.join(', ')+'. Можно выбрать доступные модели.')+'</div>';
+      const missingMessage=missing.length?(Array.isArray(data.fallback?.hourly?.time)
+        ?'Резервный прогноз.':'Нет моделей: '+missing.join(', ')+'.'):'';
+      stat.innerHTML='<div class="banner neutral">'+esc([forecastNote,missingMessage].filter(Boolean).join(' · '))+'</div>';
     }else{stat.hidden=true;stat.innerHTML=''}
     $('weatherContent').hidden=false;
     if(!valid.some(d=>d===forecast[activeModel]))activeModel=MODELS.find(m=>Array.isArray(forecast[m.id]?.hourly?.time))?.id||activeModel;

@@ -3,6 +3,9 @@ from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 sources={
   "official_bulletin":"https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/08.10.2026.xls",
+  "official_bulletin_0710":"https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/07.10.2026.xls",
+  "official_bulletin_0110":"https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/01.10.2026.xls",
+  "official_bulletin_2409":"https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/24.09.2026.xls",
   "official_info_page":"https://xn--80adbch2buek4ak3i.xn--p1ai/navigatsiya/operativnaya_informatsiya_o_sudohodnyih_usloviyah/",
   "bugorok_levels":"https://www.snt-bugorok.ru/category/01-urovni-vody-v-volge/",
   "ris_water":"https://volga.risweb.ru/water-levels.php"
@@ -14,7 +17,7 @@ def fetch(item):
   with urllib.request.urlopen(req,timeout=17) as f:
    data=f.read(2200000)
    info={"http":f.status,"size":len(data),"content_type":f.headers.get("content-type"),"magic":data[:12].hex()}
-   if key=="official_bulletin" and len(data)>2000 and data.startswith(bytes.fromhex("d0cf11e0a1b11ae1")):
+   if key.startswith("official_bulletin") and len(data)>2000 and data.startswith(bytes.fromhex("d0cf11e0a1b11ae1")):
     try:
      import xlrd
      book=xlrd.open_workbook(file_contents=data)

@@ -1,19 +1,6 @@
 {
-  "checkedAt": "2026-10-08T13:43:50.050076+00:00",
+  "checkedAt": "2026-10-08T13:44:58.186105+00:00",
   "sources": {
-    "ris_water": {
-      "http": 200,
-      "size": 10147,
-      "content_type": "text/html; charset=UTF-8",
-      "magic": "200d0a3c21444f4354595045",
-      "keywords": {
-        "Самара": false,
-        "08.10.2026": false,
-        "Sorry, your request has been denied": false,
-        "Нет связи с сетью": true
-      },
-      "head": " \r\n<!DOCTYPE html>\r\n<html lang=\"ru\" dir=\"ltr\">\r\n  <head>\r\n    <meta charset=\"utf-8\">\r\n<met"
-    },
     "official_bulletin": {
       "http": 200,
       "size": 85504,
@@ -83,18 +70,225 @@
         }
       ]
     },
-    "official_info_page": {
+    "official_bulletin_2409": {
       "http": 200,
-      "size": 14625,
+      "size": 72192,
+      "content_type": "application/vnd.ms-excel",
+      "magic": "d0cf11e0a1b11ae100000000",
+      "sheets": [
+        {
+          "name": "уровни воды",
+          "rows": 57,
+          "cols": 14,
+          "matches": [
+            {
+              "row": 38,
+              "data": [
+                "1737.0",
+                "Самара",
+                "",
+                "28.56",
+                "-2.0",
+                "16,0",
+                "",
+                "102.0",
+                "В.Поляны",
+                "",
+                "34.0",
+                "-2.0",
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "name": "габариты сх",
+          "rows": 60,
+          "cols": 6,
+          "matches": [
+            {
+              "row": 24,
+              "data": [
+                "Казань           - Самарский шлюз",
+                "",
+                "400.0",
+                "400.0",
+                "",
+                "400.0"
+              ]
+            },
+            {
+              "row": 25,
+              "data": [
+                "Самарский шлюз        -Тольятти",
+                "",
+                "400.0",
+                "100.0",
+                "",
+                "400.0"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "габариты сх (2) ",
+          "rows": 66,
+          "cols": 6,
+          "matches": []
+        }
+      ]
+    },
+    "official_bulletin_0710": {
+      "http": 200,
+      "size": 72192,
+      "content_type": "application/vnd.ms-excel",
+      "magic": "d0cf11e0a1b11ae100000000",
+      "sheets": [
+        {
+          "name": "уровни воды",
+          "rows": 57,
+          "cols": 14,
+          "matches": [
+            {
+              "row": 38,
+              "data": [
+                "1737.0",
+                "Самара",
+                "",
+                "28.58",
+                "13.0",
+                "11,0",
+                "",
+                "102.0",
+                "В.Поляны",
+                "",
+                "23.0",
+                "-1.0",
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "name": "габариты сх",
+          "rows": 60,
+          "cols": 6,
+          "matches": [
+            {
+              "row": 24,
+              "data": [
+                "Казань           - Самарский шлюз",
+                "",
+                "400.0",
+                "400.0",
+                "",
+                "400.0"
+              ]
+            },
+            {
+              "row": 25,
+              "data": [
+                "Самарский шлюз        -Тольятти",
+                "",
+                "400.0",
+                "100.0",
+                "",
+                "400.0"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "габариты сх (2) ",
+          "rows": 66,
+          "cols": 6,
+          "matches": []
+        }
+      ]
+    },
+    "official_bulletin_0110": {
+      "http": 200,
+      "size": 95232,
+      "content_type": "application/vnd.ms-excel",
+      "magic": "d0cf11e0a1b11ae100000000",
+      "sheets": [
+        {
+          "name": "уровни воды",
+          "rows": 57,
+          "cols": 14,
+          "matches": [
+            {
+              "row": 38,
+              "data": [
+                "1737.0",
+                "Самара",
+                "",
+                "28.49",
+                "-1.0",
+                "10,0",
+                "",
+                "102.0",
+                "В.Поляны",
+                "",
+                "29.0",
+                "-1.0",
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "name": "габариты сх",
+          "rows": 60,
+          "cols": 6,
+          "matches": [
+            {
+              "row": 24,
+              "data": [
+                "Казань           - Самарский шлюз",
+                "",
+                "400.0",
+                "400.0",
+                "",
+                "400.0"
+              ]
+            },
+            {
+              "row": 25,
+              "data": [
+                "Самарский шлюз        -Тольятти",
+                "",
+                "400.0",
+                "100.0",
+                "",
+                "400.0"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "габариты сх (2) ",
+          "rows": 66,
+          "cols": 6,
+          "matches": []
+        }
+      ]
+    },
+    "ris_water": {
+      "http": 200,
+      "size": 10147,
       "content_type": "text/html; charset=UTF-8",
-      "magic": "0a0a3c21444f435459504520",
+      "magic": "200d0a3c21444f4354595045",
       "keywords": {
         "Самара": false,
-        "08.10.2026": true,
+        "08.10.2026": false,
         "Sorry, your request has been denied": false,
-        "Нет связи с сетью": false
+        "Нет связи с сетью": true
       },
-      "head": "\n\n<!DOCTYPE HTML>\n\n\n\n<!--[if IE 8]> <html lang=\"en\" class=\"ie8\"> <![endif]-->\n<!--[if IE 9"
+      "head": " \r\n<!DOCTYPE html>\r\n<html lang=\"ru\" dir=\"ltr\">\r\n  <head>\r\n    <meta charset=\"utf-8\">\r\n<met"
     },
     "bugorok_levels": {
       "http": 200,
@@ -108,6 +302,19 @@
         "Нет связи с сетью": false
       },
       "head": "<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\""
+    },
+    "official_info_page": {
+      "http": 200,
+      "size": 14625,
+      "content_type": "text/html; charset=UTF-8",
+      "magic": "0a0a3c21444f435459504520",
+      "keywords": {
+        "Самара": false,
+        "08.10.2026": true,
+        "Sorry, your request has been denied": false,
+        "Нет связи с сетью": false
+      },
+      "head": "\n\n<!DOCTYPE HTML>\n\n\n\n<!--[if IE 8]> <html lang=\"en\" class=\"ie8\"> <![endif]-->\n<!--[if IE 9"
     }
   }
 }

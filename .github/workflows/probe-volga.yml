@@ -1,0 +1,37 @@
+name: Probe Volga official level feeds
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/probe-volga.yml
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test public source connectivity
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request,ssl
+          sources={
+            "official-bulletin":"https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/08.10.2026.xls",
+            "official-page":"https://xn--80adbch2buek4ak3i.xn--p1ai/navigatsiya/operativnaya_informatsiya_o_sudohodnyih_usloviyah/",
+            "bugorok-table":"https://www.snt-bugorok.ru/category/01-urovni-vody-v-volge/",
+            "ris":"https://volga.risweb.ru/index.php"
+          }
+          for key,url in sources.items():
+            try:
+              req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 (compatible; RybTochki/1.0)"})
+              with urllib.request.urlopen(req,timeout=14) as r:
+                content=r.read(2000000)
+                print(f"{key}: HTTP={r.status} length={len(content)} ctype={r.headers.get('content-type')} magic={content[:20]!r}")
+                if key=='official-bulletin':
+                  with open('/tmp/official.xls','wb') as out: out.write(content)
+            except Exception as e:
+              print(f"{key}: ERROR {type(e).__name__}: {e}")
+          PY
+          file /tmp/official.xls || true

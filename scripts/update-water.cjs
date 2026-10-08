@@ -62,16 +62,28 @@ async function main(){
  const now=new Date().toISOString(),today=samaraToday();
  let old={};try{old=JSON.parse(fs.readFileSync(FILE,'utf8'))}catch{}
  const result={station:'Волга у Самары / Самарская область',updatedAt:now,level:null,temperature:null,errors:{}};
- try{result.level={...level(await download(URL_LEVEL)),retrievedAt:now}}
- catch(e){
-  result.errors.level='Бугорок (м БС): '+String(e.message);
-  try{result.level={...backup(await download(URL_BACKUP),today),retrievedAt:now};delete result.errors.level}
-  catch(err){
-   result.errors.level+='; Бугорок (см): '+String(err.message);
-   try{result.level={...risLevel(await download(URL_RIS)),retrievedAt:now};delete result.errors.level}
-   catch(risError){result.errors.level+='; РИС: '+String(risError.message)}
-  }
+ // The general gauge table may be one day behind the daily graph.
+ // Check all sources and keep the newest observation (never downgrade a newer stored reading).
+ const probes=await Promise.allSettled([
+  download(URL_LEVEL).then(level),
+  download(URL_BACKUP).then(html=>backup(html,today)),
+  download(URL_RIS).then(risLevel)
+ ]);
+ const candidates=[];
+ const failures=[];
+ for(let i=0;i<probes.length;i++){
+  const p=probes[i];
+  if(p.status==='fulfilled')candidates.push({...p.value,retrievedAt:now});
+  else failures.push(['Bugo mBS','Bugo cm','RIS'][i]+': '+String(p.reason?.message||p.reason));
  }
+ // Candidate order gives native mBS values preference on equal dates.
+ candidates.sort((a,b)=>b.observedOn.localeCompare(a.observedOn));
+ const freshest=candidates[0];
+ if(freshest)result.level=freshest;
+ if(old.level&&Number.isFinite(old.level.value)&&(!result.level||old.level.observedOn>result.level.observedOn)){
+  result.level={...old.level};
+ }
+ if(!result.level)result.errors.level=failures.join('; ')||'Источники не вернули данных';
  try{result.temperature={...temperature(await download(URL_TEMP),+today.slice(0,4)),retrievedAt:now}}
  catch(e){result.errors.temperature=String(e.message)}
  for(const field of ['level','temperature']){

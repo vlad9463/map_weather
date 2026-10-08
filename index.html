@@ -664,7 +664,9 @@
     cellValue.textContent=display+' '+String(rec.unit||'');
     const source=rec.kind==='regional_forecast'?'областной прогноз':rec.kind==='gauge_relative'?'относительный уровень поста':'гидропост';
     const date=rec.observedOn?hydrologyDate(rec.observedOn):'дата не известна';
-    info.textContent=source+' · '+date+(rec.status==='stale'?' · устарело':'');
+    info.textContent=source+' · '+date+
+      (rec.provenance==='user_screenshot'?' · по скриншоту, автообновление не подтверждено':'')+
+      (rec.status==='stale'?' · устарело':'');
     cellValue.classList.toggle('stale-water',rec.status==='stale');
     return rec.status==='ok';
   }

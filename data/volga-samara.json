@@ -1,30 +1,26 @@
 {
   "station": "Волга у Самары / Самарская область",
-  "updatedAt": "2026-10-12T22:31:20.014873Z",
+  "updatedAt": "2026-10-13T10:47:45.147448Z",
   "level": {
-    "value": 28.62,
+    "value": 28.4,
     "unit": "м БС",
-    "observedOn": "2026-10-10",
+    "observedOn": "2026-10-13",
     "kind": "hydropost",
     "provenance": "automated_source",
     "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
-    "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/10.10.2026.xls",
-    "retrievedAt": "2026-10-10T19:21:55.790981Z",
-    "status": "stale",
-    "warning": "Последняя измеренная отметка устарела"
+    "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/13.10.2026.xls",
+    "retrievedAt": "2026-10-13T10:47:45.147448Z",
+    "status": "ok"
   },
   "temperature": {
-    "value": 9,
+    "value": 10.2,
     "unit": "°C",
-    "observedOn": "2026-10-12",
+    "observedOn": "2026-10-13",
     "kind": "regional_forecast",
     "sourceName": "Русоир (расчёт по Самарской области)",
     "sourceUrl": "https://rusoir.com/forecast/water-temperature/samarskoj-oblasti",
-    "retrievedAt": "2026-10-12T22:31:18.270Z",
+    "retrievedAt": "2026-10-13T10:47:42.471Z",
     "status": "ok"
   },
-  "errors": {
-    "level": "Нет нового уровня: последние наблюдения за 2026-10-10",
-    "level_import": "Не удалось получить список официальных бюллетеней: <urlopen error timed out>; 2026-10-13: URLError: <urlopen error timed out>; 2026-10-12: URLError: <urlopen error timed out>; 2026-10-11: URLError: <urlopen error timed out>; 2026-08-03: URLError: <urlopen error timed out>"
-  }
+  "errors": {}
 }

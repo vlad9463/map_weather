@@ -74,7 +74,7 @@
     },
     {
       "date": "2026-07-25",
-      "value": 29.0,
+      "value": 29,
       "unit": "м БС",
       "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/25.07.2026.xls",
@@ -104,7 +104,7 @@
     },
     {
       "date": "2026-07-28",
-      "value": 29.0,
+      "value": 29,
       "unit": "м БС",
       "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/28.07.2026.xls",

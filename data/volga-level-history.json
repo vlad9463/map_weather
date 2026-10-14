@@ -3,6 +3,16 @@
   "unit": "м БС",
   "observations": [
     {
+      "date": "2026-07-17",
+      "value": 28.94,
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/17.07.2026.xls",
+      "provenance": "automated_source",
+      "kind": "hydropost",
+      "retrievedAt": "2026-10-14T19:29:51.402710Z"
+    },
+    {
       "date": "2026-07-18",
       "value": 29.12,
       "unit": "м БС",
@@ -870,7 +880,7 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/12.10.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-10-13T10:47:45.147448Z"
+      "retrievedAt": "2026-10-14T19:29:51.402710Z"
     },
     {
       "date": "2026-10-13",
@@ -880,7 +890,17 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/13.10.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-10-13T10:47:45.147448Z"
+      "retrievedAt": "2026-10-14T19:29:51.402710Z"
+    },
+    {
+      "date": "2026-10-14",
+      "value": 28.51,
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/14.10.2026.xls",
+      "provenance": "automated_source",
+      "kind": "hydropost",
+      "retrievedAt": "2026-10-14T19:29:51.402710Z"
     }
   ],
   "note": "Только наблюдения, автоматически прочитанные из официальных ежедневных XLS. Пропущенные дни не заполняются."

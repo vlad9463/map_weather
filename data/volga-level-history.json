@@ -960,7 +960,7 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/20.10.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-10-22T14:34:14.540239Z"
+      "retrievedAt": "2026-10-22T19:17:05.654752Z"
     },
     {
       "date": "2026-10-21",
@@ -970,7 +970,7 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/21.10.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-10-22T14:34:14.540239Z"
+      "retrievedAt": "2026-10-22T19:17:05.654752Z"
     },
     {
       "date": "2026-10-22",
@@ -980,7 +980,7 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/22.10.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-10-22T14:34:14.540239Z"
+      "retrievedAt": "2026-10-22T19:17:05.654752Z"
     }
   ],
   "note": "Только наблюдения, автоматически прочитанные из официальных ежедневных XLS. Пропущенные дни не заполняются."

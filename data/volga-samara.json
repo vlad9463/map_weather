@@ -1,6 +1,6 @@
 {
   "station": "Волга у Самары / Самарская область",
-  "updatedAt": "2026-10-23T14:18:26.885220Z",
+  "updatedAt": "2026-10-23T19:20:56.803113Z",
   "level": {
     "value": 28.37,
     "unit": "м БС",
@@ -9,20 +9,18 @@
     "provenance": "automated_source",
     "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
     "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/23.10.2026.xls",
-    "retrievedAt": "2026-10-23T08:41:14.813722Z",
+    "retrievedAt": "2026-10-23T19:20:56.803113Z",
     "status": "ok"
   },
   "temperature": {
-    "value": 7,
+    "value": 7.1,
     "unit": "°C",
     "observedOn": "2026-10-23",
     "kind": "regional_forecast",
     "sourceName": "Русоир (расчёт по Самарской области)",
     "sourceUrl": "https://rusoir.com/forecast/water-temperature/samarskoj-oblasti",
-    "retrievedAt": "2026-10-23T14:18:24.252Z",
+    "retrievedAt": "2026-10-23T19:20:54.328Z",
     "status": "ok"
   },
-  "errors": {
-    "level_import": "Не удалось получить список официальных бюллетеней: <urlopen error timed out>; 2026-10-23: URLError: <urlopen error timed out>; 2026-10-22: URLError: <urlopen error timed out>; 2026-10-21: URLError: <urlopen error timed out>"
-  }
+  "errors": {}
 }

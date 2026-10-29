@@ -1030,7 +1030,7 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/27.10.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-10-28T20:23:03.358928Z"
+      "retrievedAt": "2026-10-29T10:11:58.756675Z"
     },
     {
       "date": "2026-10-28",
@@ -1040,7 +1040,17 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/28.10.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-10-28T20:23:03.358928Z"
+      "retrievedAt": "2026-10-29T10:11:58.756675Z"
+    },
+    {
+      "date": "2026-10-29",
+      "value": 28.34,
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/29.10.2026.xls",
+      "provenance": "automated_source",
+      "kind": "hydropost",
+      "retrievedAt": "2026-10-29T10:11:58.756675Z"
     }
   ],
   "note": "Только наблюдения, автоматически прочитанные из официальных ежедневных XLS. Пропущенные дни не заполняются."

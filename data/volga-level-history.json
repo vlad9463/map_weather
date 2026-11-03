@@ -1071,6 +1071,36 @@
       "provenance": "automated_source",
       "kind": "hydropost",
       "retrievedAt": "2026-10-31T09:49:07.313419Z"
+    },
+    {
+      "date": "2026-11-01",
+      "value": 28.23,
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/01.11.2026.xls",
+      "provenance": "automated_source",
+      "kind": "hydropost",
+      "retrievedAt": "2026-11-03T11:03:43.440499Z"
+    },
+    {
+      "date": "2026-11-02",
+      "value": 28.26,
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/02.11.2026.xls",
+      "provenance": "automated_source",
+      "kind": "hydropost",
+      "retrievedAt": "2026-11-03T11:03:43.440499Z"
+    },
+    {
+      "date": "2026-11-03",
+      "value": 28.47,
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/03.11.2026.xls",
+      "provenance": "automated_source",
+      "kind": "hydropost",
+      "retrievedAt": "2026-11-03T11:03:43.440499Z"
     }
   ],
   "note": "Только наблюдения, автоматически прочитанные из официальных ежедневных XLS. Пропущенные дни не заполняются."

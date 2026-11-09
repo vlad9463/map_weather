@@ -1,6 +1,6 @@
 {
   "station": "Волга у Самары / Самарская область",
-  "updatedAt": "2026-11-08T19:47:11.595139Z",
+  "updatedAt": "2026-11-09T11:49:54.223707Z",
   "level": {
     "value": 28.35,
     "unit": "м БС",
@@ -15,12 +15,14 @@
   "temperature": {
     "value": 2.8,
     "unit": "°C",
-    "observedOn": "2026-11-08",
+    "observedOn": "2026-11-09",
     "kind": "regional_forecast",
     "sourceName": "Русоир (расчёт по Самарской области)",
     "sourceUrl": "https://rusoir.com/forecast/water-temperature/samarskoj-oblasti",
-    "retrievedAt": "2026-11-08T19:47:00.405Z",
+    "retrievedAt": "2026-11-09T11:49:51.319Z",
     "status": "ok"
   },
-  "errors": {}
+  "errors": {
+    "level_import": "Не удалось получить список официальных бюллетеней: <urlopen error timed out>; 2026-11-09: URLError: <urlopen error timed out>; 2026-11-08: URLError: <urlopen error timed out>; 2026-11-07: URLError: <urlopen error timed out>"
+  }
 }

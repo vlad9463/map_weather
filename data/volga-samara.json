@@ -1,15 +1,15 @@
 {
   "station": "Волга у Самары / Самарская область",
-  "updatedAt": "2026-11-18T22:38:00.700847Z",
+  "updatedAt": "2026-11-19T11:53:40.653345Z",
   "level": {
-    "value": 28.7,
+    "value": 28.52,
     "unit": "м БС",
-    "observedOn": "2026-11-18",
+    "observedOn": "2026-11-19",
     "kind": "hydropost",
     "provenance": "automated_source",
     "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
-    "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/18.11.2026.xls",
-    "retrievedAt": "2026-11-18T22:38:00.700847Z",
+    "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/19.11.2026.xls",
+    "retrievedAt": "2026-11-19T11:53:40.653345Z",
     "status": "ok"
   },
   "temperature": {
@@ -19,10 +19,8 @@
     "kind": "regional_forecast",
     "sourceName": "Русоир (расчёт по Самарской области)",
     "sourceUrl": "https://rusoir.com/forecast/water-temperature/samarskoj-oblasti",
-    "retrievedAt": "2026-11-18T22:37:55.824Z",
+    "retrievedAt": "2026-11-19T11:53:38.661Z",
     "status": "ok"
   },
-  "errors": {
-    "level_import": "2026-11-19: HTTPError: HTTP Error 404: Not Found"
-  }
+  "errors": {}
 }

@@ -1289,6 +1289,14 @@
       "sourceUrl": "https://www.snt-bugorok.ru/category/bo-11/",
       "provenance": "automated_source",
       "retrievedAt": "2026-11-22T21:06:45.579Z"
+    },
+    {
+      "date": "2026-11-23",
+      "value": 28.69,
+      "sourceName": "СНТ Бугорок (Самара; перевод см над нулём поста)",
+      "sourceUrl": "https://www.snt-bugorok.ru/category/bo-11/",
+      "provenance": "automated_source",
+      "retrievedAt": "2026-11-23T13:14:28.549Z"
     }
   ],
   "note": "Только наблюдения, автоматически прочитанные из официальных ежедневных XLS. Пропущенные дни не заполняются."

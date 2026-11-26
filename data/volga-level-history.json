@@ -1321,6 +1321,14 @@
       "provenance": "automated_source",
       "kind": "hydropost",
       "retrievedAt": "2026-11-25T23:41:16.975017Z"
+    },
+    {
+      "date": "2026-11-26",
+      "value": 28.64,
+      "sourceName": "СНТ Бугорок (Самара; перевод см над нулём поста)",
+      "sourceUrl": "https://www.snt-bugorok.ru/category/bo-11/",
+      "provenance": "automated_source",
+      "retrievedAt": "2026-11-26T12:53:03.103Z"
     }
   ],
   "note": "Только наблюдения, автоматически прочитанные из официальных ежедневных XLS. Пропущенные дни не заполняются."

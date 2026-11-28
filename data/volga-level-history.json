@@ -1330,15 +1330,27 @@
       "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/26.11.2026.xls",
       "provenance": "automated_source",
       "kind": "hydropost",
-      "retrievedAt": "2026-11-26T23:54:29.211445Z"
+      "retrievedAt": "2026-11-28T11:59:48.854915Z"
     },
     {
       "date": "2026-11-27",
       "value": 28.67,
-      "sourceName": "СНТ Бугорок (Самара; перевод см над нулём поста)",
-      "sourceUrl": "https://www.snt-bugorok.ru/category/bo-11/",
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/27.11.2026.xls",
       "provenance": "automated_source",
-      "retrievedAt": "2026-11-27T23:33:55.897Z"
+      "kind": "hydropost",
+      "retrievedAt": "2026-11-28T11:59:48.854915Z"
+    },
+    {
+      "date": "2026-11-28",
+      "value": 28.6,
+      "unit": "м БС",
+      "sourceName": "ФБУ «Администрация Волжского бассейна» · ежедневный бюллетень",
+      "sourceUrl": "https://xn--80adbch2buek4ak3i.xn--p1ai/uploads/28.11.2026.xls",
+      "provenance": "automated_source",
+      "kind": "hydropost",
+      "retrievedAt": "2026-11-28T11:59:48.854915Z"
     }
   ],
   "note": "Только наблюдения, автоматически прочитанные из официальных ежедневных XLS. Пропущенные дни не заполняются."
